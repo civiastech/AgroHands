@@ -1,0 +1,9 @@
+# LF everywhere: shell scripts and Caddyfiles committed from Windows with CRLF break on Linux servers.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.db binary
+*.aab binary
+*.apk binary
+*.keystore binary

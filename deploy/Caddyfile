@@ -1,0 +1,11 @@
+# For a host install without Docker (systemd + Caddy from apt). Replace the domain.
+# Caddy fetches a free HTTPS certificate automatically. Set TRUST_PROXY=true in the app's .env.
+agrohands.example {
+	encode zstd gzip
+	@internal path /metrics
+	respond @internal 404
+	reverse_proxy 127.0.0.1:3000 {
+		health_uri /readyz
+	}
+	header -Server
+}

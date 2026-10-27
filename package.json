@@ -1,0 +1,29 @@
+{
+  "name": "agrohands",
+  "version": "1.0.0",
+  "description": "AgroHands — verified farm workforce platform for Nigeria. Zero third-party dependencies.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch --disable-warning=ExperimentalWarning src/server.js",
+    "seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/seed.js",
+    "migrate": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/migrate.js",
+    "backup": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/backup.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "test:coverage": "node --disable-warning=ExperimentalWarning --test --experimental-test-coverage test/*.test.js",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app",
+    "docker:seed": "docker compose exec app node --disable-warning=ExperimentalWarning scripts/seed.js",
+    "prod:up": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build",
+    "prod:down": "docker compose -f docker-compose.yml -f docker-compose.prod.yml down",
+    "play:assets": "node --disable-warning=ExperimentalWarning scripts/play-assets.js",
+    "android:config": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning scripts/android-config.js",
+    "android:keystore": "sh android/build.sh keystore",
+    "android:fingerprint": "sh android/build.sh fingerprint",
+    "android:build": "sh android/build.sh build"
+  },
+  "license": "UNLICENSED"
+}

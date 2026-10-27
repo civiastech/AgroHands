@@ -1,0 +1,12 @@
+# Keeps CI actions and base images patched. (There are no npm dependencies to update.)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /android
+    schedule: { interval: monthly }

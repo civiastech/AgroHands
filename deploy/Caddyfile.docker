@@ -1,0 +1,29 @@
+# Used by docker-compose.prod.yml. DOMAIN comes from .env; Caddy fetches and renews Let's Encrypt certificates itself.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Ops endpoints stay inside the Docker network (Prometheus can scrape app:3000/metrics directly).
+	@internal path /metrics
+	respond @internal 404
+
+	reverse_proxy app:3000 {
+		# Caddy replaces any client-sent X-Forwarded-For with the real client IP, which the app trusts (TRUST_PROXY=true).
+		health_uri /readyz
+		health_interval 10s
+		lb_try_duration 5s
+	}
+
+	header {
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Redirect www to the bare domain.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

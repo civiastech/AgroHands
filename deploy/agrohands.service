@@ -1,0 +1,20 @@
+[Unit]
+Description=AgroHands
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/agrohands
+EnvironmentFile=/opt/agrohands/.env
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning src/server.js
+Restart=always
+RestartSec=2
+TimeoutStopSec=20
+User=www-data
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/agrohands/data /opt/agrohands/backups
+
+[Install]
+WantedBy=multi-user.target

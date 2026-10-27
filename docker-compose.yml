@@ -1,0 +1,46 @@
+# Local / single-server deployment.
+#   Local:       docker compose up -d --build            → http://localhost:3000
+#   Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#                (adds HTTPS via Caddy and nightly backups; see docs/DEPLOYMENT.md)
+name: agrohands
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  app:
+    <<: *hardening
+    image: ${APP_IMAGE:-agrohands:local}
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Local defaults; .env (or the prod override) wins where it sets the same variable.
+      NODE_ENV: ${NODE_ENV:-development}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      DB_PATH: /data/agrohands.db
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits: { memory: 512M }
+
+volumes:
+  # Named volume, not a bind mount: SQLite WAL needs real POSIX locking (bind mounts on Windows/macOS lack it).
+  app-data:
