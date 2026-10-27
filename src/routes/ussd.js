@@ -8,12 +8,12 @@ import { normalisePhone, validPin, verifyPin } from '../auth.js';
 import { createUser, pendingOffers, respondToOffer } from '../lib/services.js';
 import { refreshTier } from '../lib/tiers.js';
 import { findState } from '../data/states.js';
-import { translator } from '../i18n/index.js';
+import { translator, LANG_CODES } from '../i18n/index.js';
 
 const USSD_SKILLS = ['farmhand', 'planting', 'weeding', 'harvesting', 'spraying', 'palm_harvest', 'poultry', 'tractor', 'security'];
-const LANGS = ['en', 'pcm', 'yo', 'ha', 'ig'];
+const LANGS = LANG_CODES; // same order as the web language menu
 
-const W = {
+export const USSD_TEXT = {
   en: { welcome: 'AgroHands', reg: 'Register for farm work', offers: 'My job offers', status: 'My status', lang: 'Language',
     name: 'Enter your full name\n(By continuing you accept AgroHands Terms & Privacy)', state: 'Enter your State (e.g. Oyo)', skill: 'Choose your main work:', pin: 'Choose a 4-digit PIN',
     pin2: 'Enter the PIN again', done: 'Registered! Visit an AgroHands agent with your NIN slip to get verified.',
@@ -26,8 +26,15 @@ const W = {
     exists: 'You don register before.', noacc: 'You never register. Dial again choose 1.', none: 'No offer now. We go SMS you.',
     accept: 'I gree', decline: 'I no gree', enterpin: 'Put your PIN to agree', accepted: 'You don agree! Contract don open. Agent go read am for you before you sign.',
     declined: 'You no gree the offer.', badpin: 'PIN no correct.', bad: 'Wrong choice.', badstate: 'We no see that State.', tier: 'Level', next: 'Next step' },
+  // French: sticks to the GSM 7-bit alphabet (no ê, ô, ç or curly quotes) so menus keep the full 160 characters.
+  fr: { welcome: 'AgroHands', reg: 'S\'inscrire pour travailler', offers: 'Mes offres d\'emploi', status: 'Mon statut', lang: 'Langue',
+    name: 'Entrez votre nom complet\n(En continuant, vous acceptez les Conditions AgroHands)', state: 'Entrez votre Etat (ex. Oyo)', skill: 'Choisissez votre travail principal:', pin: 'Choisissez un PIN de 4 chiffres',
+    pin2: 'Entrez le PIN encore une fois', done: 'Inscrit! Allez voir un agent AgroHands avec votre fiche NIN pour la verification.',
+    exists: 'Vous etes deja inscrit.', noacc: 'Pas inscrit. Recomposez et choisissez 1.', none: 'Pas d\'offre pour le moment. Nous vous enverrons un SMS.',
+    accept: 'Accepter', decline: 'Refuser', enterpin: 'Entrez votre PIN pour accepter', accepted: 'Accepte! Contrat cree. Un agent vous le lira avant la signature.',
+    declined: 'Offre refusee.', badpin: 'PIN incorrect.', bad: 'Choix invalide.', badstate: 'Etat introuvable.', tier: 'Niveau', next: 'Etape suivante' },
 };
-const w = (lang) => W[lang] || W.en;
+const w = (lang) => USSD_TEXT[lang] || USSD_TEXT.en;
 
 export function ussdReply({ phoneNumber, text = '' }) {
   const phone = normalisePhone(phoneNumber);

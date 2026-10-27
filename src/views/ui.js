@@ -1,7 +1,7 @@
 // Layout and reusable UI pieces. Server-rendered HTML, no client framework: fast on 2G and cheap phones.
 import { ASSET_VERSION } from '../routes/static.js';
 import { html, raw } from '../html.js';
-import { LANG_CODES, LOCALES } from '../i18n/index.js';
+import { LANG_CODES, LOCALES, htmlLang } from '../i18n/index.js';
 import { SKILLS } from '../data/skills.js';
 import { STATE_NAMES } from '../data/states.js';
 import { ICON_SPRITE, icon } from './icons.js';
@@ -43,7 +43,7 @@ export function layout(ctx, { title, body, narrow = true, bare = false, full = f
   const cur = (href) => (href === active ? raw('aria-current="page"') : '');
   const profileHref = user?.role === 'worker' ? '/w/profile' : user?.role === 'farmer' ? '/f/farm' : null;
   return html`<!doctype html>
-<html lang="${lang === 'pcm' ? 'en-NG' : lang}">
+<html lang="${htmlLang(lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -66,7 +66,7 @@ ${ICON_SPRITE}
   <details class="menu">
     <summary aria-label="${t('nav.language')}">${icon('globe')}<span>${LOCALES[lang]['lang.name']}</span></summary>
     <div class="menu-pop" role="menu">
-      ${LANG_CODES.map((c) => html`<a role="menuitem" href="/lang/${c}" lang="${c === 'pcm' ? 'en-NG' : c}" ${c === lang ? raw('aria-current="true"') : ''}>${LOCALES[c]['lang.name']}</a>`)}
+      ${LANG_CODES.map((c) => html`<a role="menuitem" href="/lang/${c}" lang="${htmlLang(c)}" ${c === lang ? raw('aria-current="true"') : ''}>${LOCALES[c]['lang.name']}</a>`)}
     </div>
   </details>
   ${user ? html`<details class="menu">

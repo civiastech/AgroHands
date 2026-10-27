@@ -10,7 +10,7 @@ Farm owners find NIN-verified, trained, rated farm workers. They get a contract 
 
 | Area | What works |
 | --- | --- |
-| Languages | English, Pidgin, Yorùbá, Hausa, Igbo. A user can switch on any page. **Pidgin, Yorùbá, Hausa and Igbo are drafts:** a native speaker must review them before launch. |
+| Languages | English, Pidgin, Yorùbá, Hausa, Igbo and French (for workers and farm owners from neighbouring Francophone countries). Picked from the browser automatically; a user can switch on any page and in USSD. **Pidgin, Yorùbá, Hausa, Igbo and French are drafts:** a native speaker must review them before launch. |
 | Workers | Phone + PIN sign-up; profile (skills, location, GPS pin, wage, travel radius, relocation); NIN verification with consent; guarantor; availability toggle; offers; accept or decline. |
 | Farm owners | Farm profile with GPS pin; post jobs; ranked shortlist with explained scores; send offers; minimum-wage warning. |
 | Matching engine | Hard filters: skill, availability, tier, age 18+, wage, distance, housing. Weighted score: skill 30, reliability 25, rating 20, distance 15, tier 10. Smoothed so new workers get a fair start. |
@@ -107,7 +107,7 @@ Every setting is documented in [.env.example](.env.example). In production the a
 
 ## Before launch checklist
 
-- [ ] Native speakers review the Pidgin, Yorùbá, Hausa and Igbo files (`src/i18n/*.js`)
+- [ ] Native speakers review the Pidgin, Yorùbá, Hausa, Igbo and French files (`src/i18n/*.js`)
 - [ ] A lawyer reviews `/terms`, `/privacy` and the contract clauses (`src/lib/contract.js`)
 - [ ] Set `SESSION_SECRET`, `BASE_URL`, `DOMAIN`, `ADMIN_PHONES` and `USSD_KEY`; do not run the seed
 - [ ] Recruiter's licence application filed
@@ -129,7 +129,7 @@ src/migrations/       numbered SQL migrations (001_init.sql, 002_indexes.sql, �
 src/lib/              domain logic: matching, tiers, contracts, NIN adapter, services
 src/lib/log.js        structured logger · metrics.js Prometheus · ratelimit.js limiter
 src/routes/*.js       screens: public, worker, farmer, contracts, academy, agent, admin, ussd, ops
-src/i18n/*.js         5 languages
+src/i18n/*.js         6 languages
 scripts/              seed, migrate, backup, play-assets, android-config
 deploy/               Caddy, systemd, deploy script
 android/              Play Store build (Docker toolchain, build.sh) and store graphics

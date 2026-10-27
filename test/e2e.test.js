@@ -199,6 +199,24 @@ test('USSD registration, status and language', async () => {
   assert.match(await ussd('2'), /No offers/);
   assert.match(await ussd('4*2'), /Pidgin/);
   assert.match(await ussd(''), /Work wey dem offer me/);
+  // French: listed as option 6, then the menus switch to French.
+  assert.match(await ussd('4'), /6\. Français/);
+  assert.match(await ussd('4*6'), /Français/);
+  assert.match(await ussd(''), /Mes offres d'emploi/);
+  assert.match(await ussd('3'), /Niveau/);
+});
+
+test('French web journey: browser language, menus and pages', async () => {
+  const res = await fetch(`${base}/login`, { headers: { 'accept-language': 'fr-BE,fr;q=0.9,en;q=0.8' } });
+  const page = await res.text();
+  assert.match(page, /<html lang="fr">/);
+  assert.match(page, /Bon retour\. Utilisez le numéro/);
+  assert.match(page, /href="\/lang\/fr"[^>]*aria-current="true"/);
+  const c = new Client();
+  await c.get('/lang/fr');
+  assert.equal(c.jar.ah_lang, 'fr');
+  const home = await c.get('/');
+  assert.match(home.text, /Du travail agricole en toute confiance/);
 });
 
 test('security basics', async () => {

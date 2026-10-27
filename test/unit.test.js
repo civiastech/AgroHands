@@ -102,3 +102,35 @@ test('every translation key exists in English', () => {
     for (const k of Object.keys(dict)) assert.ok(k in en, `${code} has unknown key ${k}`);
   }
 });
+
+test('French is a complete translation (every English key, same placeholders)', () => {
+  const fr = LOCALES.fr;
+  const missing = Object.keys(en).filter((k) => !(k in fr));
+  assert.deepEqual(missing, []);
+  for (const [k, v] of Object.entries(en)) {
+    const vars = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join();
+    assert.equal(vars(fr[k]), vars(v), `placeholders differ in ${k}`);
+  }
+});
+
+test('browser language detection follows Accept-Language preference order', async () => {
+  const { pickLang } = await import('../src/i18n/index.js');
+  assert.equal(pickLang(undefined, 'fr-BE,fr;q=0.9,en;q=0.8'), 'fr');
+  assert.equal(pickLang(undefined, 'de-DE,fr;q=0.5'), 'fr', 'skips unsupported languages');
+  assert.equal(pickLang(undefined, 'en;q=0.4,yo;q=0.9'), 'yo', 'honours q-values');
+  assert.equal(pickLang(undefined, 'de-AT,de'), 'en', 'no false match on substrings');
+  assert.equal(pickLang(undefined, 'fr;q=0,ha'), 'ha', 'q=0 means not acceptable');
+  assert.equal(pickLang('ig', 'fr'), 'ig', 'cookie wins');
+  assert.equal(pickLang(undefined, ''), 'en');
+});
+
+test('French USSD menus fit basic phones (GSM 7-bit alphabet, under 160 characters)', async () => {
+  const { USSD_TEXT } = await import('../src/routes/ussd.js');
+  assert.deepEqual(Object.keys(USSD_TEXT.fr).sort(), Object.keys(USSD_TEXT.en).sort(), 'French has every USSD message');
+  const strings = Object.values(USSD_TEXT.fr);
+  const GSM7 = /^[@£$¥èéùìòÇ\nØø\rÅå_ÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà]*$/;
+  for (const s of strings) {
+    assert.match(s, GSM7, `not GSM 7-bit: ${s}`);
+    assert.ok(s.length + 4 <= 160, `too long for USSD: ${s}`);
+  }
+});

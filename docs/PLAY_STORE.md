@@ -103,7 +103,7 @@ FOR FARM WORKERS
 • Free training: farm safety, your rights at work, safe use of agrochemicals and good farming practice. Earn certificates anyone can check.
 • Get job offers that match your skills, your area and your wage.
 • Accept offers and sign your contract on your phone with your PIN.
-• Use it in English, Pidgin, Yorùbá, Hausa or Igbo.
+• Use it in English, Pidgin, Yorùbá, Hausa, Igbo or French.
 
 FOR FARM OWNERS
 • Post a job in minutes: harvesting, planting, weeding, spraying, poultry, tractor work and more.
