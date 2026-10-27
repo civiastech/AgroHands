@@ -16,7 +16,8 @@ GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)
 export GIT_SHA
 
 # Backups are written by the container's "node" user (uid 1000).
-mkdir -p backups && chown 1000:1000 backups 2>/dev/null || true
+mkdir -p backups
+chown 1000:1000 backups 2>/dev/null || echo "Note: could not chown ./backups to uid 1000 — run this script with sudo if backups fail."
 
 echo "→ Building ${GIT_SHA} (runs the test suite)…"
 $COMPOSE build

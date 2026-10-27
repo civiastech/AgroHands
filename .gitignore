@@ -1,5 +1,5 @@
-data/
-backups/
+/data/
+/backups/
 .env
 node_modules/
 *.db
