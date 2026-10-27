@@ -54,6 +54,8 @@ The first run downloads the Android toolchain into a Docker image (about 2 GB, o
 - `android/app-release-bundle.aab`: upload this to Play.
 - `android/app-release-signed.apk`: copy this to an Android phone and install it to test. If it opens with **no browser bar**, Asset Links work. If you see a URL bar, the fingerprint on the server doesn't match.
 
+**Or build on GitHub** (no Docker needed on your computer): add the repository secrets  (your keystore file, base64-encoded; the command is at the top of ) and , plus the variable . Then go to **Actions → Android → Run workflow** and download the **android-release** artifact. Without secrets, the same workflow builds a throwaway-key test app on every relevant change, so a broken Android build is caught early.
+
 ### 5. Play Console
 
 1. Create a developer account at play.google.com/console ($25, one-time; identity verification takes a few days). An **organisation** account (needs a D-U-N-S number for your CAC-registered company) avoids the testing rule in step 7 and shows your company name.

@@ -55,6 +55,7 @@ export default {
   'common.per_day': 'a kowace rana',
   'common.per_month': 'a kowane wata',
   'common.error': 'Wani abu ya faru. Don Allah sake gwadawa.',
+  'common.rate_limited': 'Kun gwada sau da yawa. Don Allah ku jira ƴan mintuna, sannan ku sake gwadawa.',
   'common.use_location': '📍 Yi amfani da wurin da nake yanzu',
   'common.location_set': 'An ajiye wuri',
 

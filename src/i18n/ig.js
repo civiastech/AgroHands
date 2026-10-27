@@ -55,6 +55,7 @@ export default {
   'common.per_day': 'kwa ụbọchị',
   'common.per_month': 'kwa ọnwa',
   'common.error': 'Ihe adịghị mma mere. Biko nwaa ọzọ.',
+  'common.rate_limited': 'Ị nwaala ọtụtụ ugboro. Biko chere nkeji ole na ole, wee nwaa ọzọ.',
   'common.use_location': '📍 Jiri ebe m nọ ugbu a',
   'common.location_set': 'Echekwala ebe',
 

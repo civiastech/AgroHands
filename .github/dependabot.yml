@@ -10,3 +10,7 @@ updates:
   - package-ecosystem: docker
     directory: /android
     schedule: { interval: monthly }
+    ignore:
+      # Bubblewrap and the Android Gradle plugin target JDK 17 (LTS). Take patch updates, not new majors.
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]

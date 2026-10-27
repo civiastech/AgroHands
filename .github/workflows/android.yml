@@ -1,0 +1,95 @@
+# Builds the Google Play app (Trusted Web Activity).
+#
+# Without secrets: builds with a throwaway key to prove the Android build still works (artifact: android-test-build).
+# With secrets: builds YOUR signed upload bundle (artifact: android-release). Run it from Actions → Android → Run workflow.
+#   Secrets:   ANDROID_KEYSTORE_BASE64   base64 of android/android.keystore   (PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("android\android.keystore")))
+#              ANDROID_KEYSTORE_PASSWORD
+#   Variables: BASE_URL (https://your-domain, required for signed builds), ANDROID_PACKAGE, ANDROID_VERSION_CODE (optional)
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["android/**", "assets/**", "public/icons/**", "scripts/android-config.js", "src/routes/static.js", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["android/**", "assets/**", "public/icons/**", "scripts/android-config.js", "src/routes/static.js", ".github/workflows/android.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SIGNED: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Android toolchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: android
+          load: true
+          tags: agrohands-android-builder
+          cache-from: type=gha,scope=android
+          cache-to: type=gha,scope=android,mode=max
+
+      # Bubblewrap downloads the icons while generating the project; serve them from this commit's code.
+      - name: Start the app to serve icons
+        run: |
+          docker build -q -t agrohands:ci .
+          docker run -d --name app -p 3000:3000 -e SESSION_SECRET=$(openssl rand -hex 32) -e BASE_URL=https://ci.example agrohands:ci
+          for i in $(seq 1 30); do [ "$(docker inspect -f '{{.State.Health.Status}}' app)" = healthy ] && break; sleep 1; done
+          curl -fsS http://localhost:3000/icons/icon-512.png -o /dev/null
+
+      - name: Signing key (yours)
+        if: env.SIGNED == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          BASE_URL: ${{ vars.BASE_URL }}
+        run: |
+          [ -n "$BASE_URL" ] || { echo "::error::Set the BASE_URL repository variable (Settings → Variables) to your live https domain."; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > android/android.keystore
+
+      - name: Signing key (throwaway, test build only)
+        if: env.SIGNED != 'true'
+        env:
+          ANDROID_KEYSTORE_PASSWORD: throwaway-ci-only
+        run: sh android/build.sh keystore
+
+      - name: Build
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ env.SIGNED == 'true' && secrets.ANDROID_KEYSTORE_PASSWORD || 'throwaway-ci-only' }}
+          BASE_URL: ${{ env.SIGNED == 'true' && vars.BASE_URL || 'https://agrohands.example' }}
+          ANDROID_PACKAGE: ${{ vars.ANDROID_PACKAGE }}
+          ANDROID_VERSION_CODE: ${{ vars.ANDROID_VERSION_CODE }}
+          ANDROID_ASSET_URL: http://host.docker.internal:3000
+        run: sh android/build.sh build
+
+      - name: Verify the APK
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work agrohands-android-builder sh -c '
+            B=$ANDROID_HOME/build-tools/36.1.0
+            $B/aapt2 dump badging android/app-release-signed.apk | grep -E "^package|targetSdk|sdkVersion|application-label:"
+            $B/aapt2 dump badging android/app-release-signed.apk | grep -q "targetSdkVersion:.36."
+            $B/apksigner verify --print-certs android/app-release-signed.apk | grep "SHA-256"'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SIGNED == 'true' && 'android-release' || 'android-test-build' }}
+          path: |
+            android/app-release-bundle.aab
+            android/app-release-signed.apk
+          retention-days: ${{ env.SIGNED == 'true' && 30 || 7 }}
+          if-no-files-found: error
+
+      - name: Remove the signing key from the runner
+        if: always()
+        run: rm -f android/android.keystore

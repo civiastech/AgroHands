@@ -55,6 +55,7 @@ export default {
   'common.per_day': 'lójúmọ́',
   'common.per_month': 'lóṣù',
   'common.error': 'Nǹkan kan kò lọ dáadáa. Jọ̀wọ́ gbìyànjú lẹ́ẹ̀kan sí i.',
+  'common.rate_limited': 'O ti gbìyànjú ní ọ̀pọ̀lọpọ̀ ìgbà. Jọ̀wọ́ dúró fún ìṣẹ́jú díẹ̀, lẹ́yìn náà gbìyànjú lẹ́ẹ̀kan sí i.',
   'common.use_location': '📍 Lo ibi tí mo wà báyìí',
   'common.location_set': 'A ti fi ibùdó pamọ́',
 
