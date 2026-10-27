@@ -1,5 +1,5 @@
 import { html, naira } from '../html.js';
-import { form } from '../views/ui.js';
+import { form, icon, progress as progressBar, backLink } from '../views/ui.js';
 import { q } from '../db.js';
 import { COURSES, getCourse, PASS_MARK } from '../data/courses.js';
 import { gradeQuiz, AppError } from '../lib/services.js';
@@ -10,16 +10,24 @@ export default function register(r) {
     const audience = user?.role === 'farmer' ? 'farmer' : user?.role === 'worker' ? 'worker' : null;
     const progress = user ? Object.fromEntries(q.all('SELECT course_id, passed, score, cert_code FROM course_progress WHERE user_id = ?', user.id).map((p) => [p.course_id, p])) : {};
     const list = COURSES.filter((c) => !audience || c.audience === audience);
+    const passed = list.filter((c) => progress[c.id]?.passed).length;
     ctx.render(t('academy.title'), html`
-      <h1>🎓 ${t('academy.title')}</h1>
-      <p>${t('academy.sub')}</p>
+      <section class="card card-hero">
+        <div class="row"><span class="tile lg" style="background:rgb(255 255 255 / 16%);color:inherit">${icon('cap', { cls: 'i-lg' })}</span>
+          <div class="grow"><h1 style="margin:0">${t('academy.title')}</h1></div></div>
+        <p class="muted" style="margin:12px 0 0">${t('academy.sub')}</p>
+        ${user ? html`<div style="margin-top:16px" class="row"><span class="grow small"><b>${t('academy.progress', { done: passed, total: list.length })}</b></span></div>
+          ${progressBar((passed / Math.max(1, list.length)) * 100)}` : ''}
+      </section>
+      <div class="list">
       ${list.map((c) => {
         const p = progress[c.id];
-        return html`<a class="card" style="display:block;text-decoration:none;color:inherit" href="/academy/${c.id}">
-          <div class="row"><b class="grow">${c.icon} ${c.title}</b>${p?.passed ? html`<span class="pill s-active">✔ ${t('academy.passed')}</span>` : ''}</div>
-          <span class="small muted">${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')} · ${c.audience === 'farmer' ? '🚜' : '🧑‍🌾'}${c.requiredFor ? ` · ${t('tier.' + c.requiredFor)}` : ''}</span>
-        </a>`;
+        return html`<a class="list-item" href="/academy/${c.id}"><span class="tile ${p?.passed ? '' : 'accent'}">${c.icon}</span>
+          <span class="grow"><b>${c.title}</b>
+            <span class="sub">${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')}${c.requiredFor ? ` · ${t('academy.needed_for')} ${t('tier.' + c.requiredFor)}` : ''}</span></span>
+          ${p?.passed ? html`<span class="pill s-active">${t('academy.passed')}</span>` : ''}${icon('right', { cls: 'chev' })}</a>`;
       })}
+      </div>
       <p class="small muted">${t('academy.translation_note')}</p>`);
   });
 
@@ -28,9 +36,10 @@ export default function register(r) {
     const c = getCourse(ctx.params.id);
     if (!c) throw new AppError('common.not_found', 404);
     ctx.render(c.title, html`
-      <p><a href="/academy">← ${t('academy.title')}</a></p>
-      <h1>${c.icon} ${c.title}</h1>
-      <p class="small muted">${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')} · Standard: ${c.standard}</p>
+      ${backLink('/academy', t('academy.title'))}
+      <div class="page-head"><span class="tile lg accent">${c.icon}</span>
+        <div class="grow"><h1>${c.title}</h1><p>${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')} · ${c.lessons.length} ${t('academy.lessons')}</p></div></div>
+      <p class="small muted">Standard: ${c.standard}</p>
       ${c.fee ? html`<p class="flash">${t('academy.paid_note')}</p>` : ''}
       ${c.lessons.map((l, i) => html`<div class="card lesson"><h3>${i + 1}. ${l.title}</h3>${l.body.map((p) => html`<p>${p}</p>`)}</div>`)}
       ${ctx.user ? html`<a class="btn block" href="/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`

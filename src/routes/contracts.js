@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { html } from '../html.js';
-import { form, field, select, statusPill, fmtDate, waLink } from '../views/ui.js';
+import { form, field, select, statusPill, fmtDate, waLink, icon, avatar, backLink, sectionHead } from '../views/ui.js';
 import { q, parseJson } from '../db.js';
 import { verifyPin, isLocked, recordPinAttempt } from '../auth.js';
 import { clauses, summaryLines } from '../lib/contract.js';
@@ -31,22 +31,29 @@ export default function register(r) {
     const ended = ['completed', 'terminated'].includes(c.status);
 
     ctx.render(`${t('contract.title')} ${c.ref}`, html`
-      <div class="row noprint"><a class="grow" href="${party === 'farmer' ? '/f' : party === 'worker' ? '/w' : '/a'}">← ${t('common.back')}</a>
-        <button class="btn ghost small" data-print>🖨 ${t('contract.print')}</button></div>
-      <div class="row"><h1 class="grow">📄 ${t('contract.title')}</h1>${statusPill(t, 'contract', c.status)}</div>
-      <p class="muted">Ref <b>${c.ref}</b> · ${fmtDate(c.created_at)}</p>
+      <div class="row noprint"><span class="grow">${backLink(party === 'farmer' ? '/f' : party === 'worker' ? '/w' : '/a', t('common.back'))}</span>
+        <button class="btn ghost small" data-print>${icon('print')}${t('contract.print')}</button></div>
+      <div class="page-head"><span class="tile lg">${icon('file', { cls: 'i-lg' })}</span>
+        <div class="grow"><h1>${t('contract.title')}</h1><p>Ref <b>${c.ref}</b> · ${fmtDate(c.created_at)}</p></div>
+        ${statusPill(t, 'contract', c.status)}</div>
 
-      <h2>${t('contract.summary')}</h2>
-      <ul class="summary">${summaryLines(terms, tWorker).map((l) => html`<li>${l}</li>`)}</ul>
-
-      ${party && c.status === 'pending' && !mySigned ? html`<div class="card noprint">
+      ${party && c.status === 'pending' && !mySigned ? html`<div class="card sign-panel noprint">
+        <div class="row" style="margin-bottom:4px"><span class="tile">${icon('edit')}</span><h3 class="grow" style="margin:0">${t('contract.sign')}</h3></div>
+        <p class="small muted" style="margin:8px 0 0">${t('contract.sign_note')}</p>
         ${form(ctx, `/c/${c.id}/sign`, html`
           ${field(t('auth.pin'), 'pin', { type: 'password', required: true, attrs: 'inputmode="numeric" maxlength="6" autocomplete="current-password"' })}
-          <button class="btn block">✍️ ${t('contract.sign')}</button>`)}</div>` : ''}
-      ${party && c.status === 'pending' && mySigned ? html`<p class="flash">✔ ${t('contract.signed_by_you')} ${t('contract.waiting_other')}</p>` : ''}
-      ${active ? html`<p class="flash">✅ ${t('contract.active')}</p>` : ''}
-      ${(active || ended) && party ? html`<div class="card noprint"><b>${t('contract.contact')}:</b> ${other.name} · <a href="tel:${other.phone}">${other.phone}</a>
-          · <a href="${waLink(other.phone)}" target="_blank" rel="noopener">${t('contract.whatsapp')}</a></div>` : ''}
+          <button class="btn block">${icon('check')}${t('contract.sign')}</button>`)}</div>` : ''}
+      ${party && c.status === 'pending' && mySigned ? html`<p class="flash info">${t('contract.signed_by_you')} ${t('contract.waiting_other')}</p>` : ''}
+      ${active ? html`<p class="flash">${t('contract.active')}</p>` : ''}
+      ${(active || ended) && party ? html`<div class="card noprint"><div class="row">${avatar(other.name)}
+          <div class="grow"><span class="small muted">${t('contract.contact')}</span><b style="display:block">${other.name}</b></div></div>
+          <div class="actions">
+            <a class="btn ghost" href="tel:${other.phone}">${icon('phone')}${other.phone}</a>
+            <a class="btn" href="${waLink(other.phone)}" target="_blank" rel="noopener">${icon('chat')}${t('contract.whatsapp')}</a>
+          </div></div>` : ''}
+
+      ${sectionHead(t('contract.summary'))}
+      <ul class="summary">${summaryLines(terms, tWorker).map((l) => html`<li>${l}</li>`)}</ul>
 
       <div class="card contract">
         <h3>EMPLOYER</h3><p>${terms.employer.name} — ${terms.employer.farmName}<br>${terms.employer.address}${terms.employer.cac ? html`<br>CAC: ${terms.employer.cac}` : ''}</p>

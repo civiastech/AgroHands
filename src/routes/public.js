@@ -1,40 +1,73 @@
-import { html } from '../html.js';
-import { form, field, checkbox } from '../views/ui.js';
+import { html, raw } from '../html.js';
+import { form, field, checkbox, icon, homeFor } from '../views/ui.js';
 import { LOCALES } from '../i18n/index.js';
 import { makeSessionCookie, sessionMaxAge, verifyPin, validPin, normalisePhone, isLocked, recordPinAttempt } from '../auth.js';
 import { q, audit } from '../db.js';
 import { createUser, AppError, deleteAccount } from '../lib/services.js';
 import { config } from '../config.js';
+import { ASSET_VERSION } from './static.js';
 
 const POLICY_DATE = '27 October 2026';
 const contact = (sentence = false) => {
   const ways = [
     config.supportEmail && html`email <a href="mailto:${config.supportEmail}?subject=Delete%20my%20account">${config.supportEmail}</a>`,
-    config.supportWhatsApp && html`WhatsApp <a href="https://wa.me/${config.supportWhatsApp.replace(/D/g, '')}">${config.supportWhatsApp}</a>`,
+    config.supportWhatsApp && html`WhatsApp <a href="https://wa.me/${config.supportWhatsApp.replace(/\D/g, '')}">${config.supportWhatsApp}</a>`,
   ].filter(Boolean);
   if (!ways.length) return sentence ? 'contact AgroHands support' : 'AgroHands support';
   return html`${sentence ? 'Contact us by ' : ''}${ways.map((w, i) => html`${i ? ' or ' : ''}${w}`)}`;
 };
 
-const homeFor = (role) => ({ worker: '/w', farmer: '/f', agent: '/a', admin: '/admin' })[role] || '/';
+// Decorative landing illustration: sun over farmland with crop rows.
+const HERO_ART = raw(`<svg class="hero-art" viewBox="0 0 520 230" aria-hidden="true">
+  <circle cx="404" cy="78" r="64" fill="#f2c14e" opacity=".16"/>
+  <circle cx="404" cy="78" r="40" fill="#f2c14e"/>
+  <path d="M0 152C92 104 186 112 274 136S434 126 520 96V230H0z" fill="#3a9a66" opacity=".55"/>
+  <path d="M0 178C116 140 236 150 340 166S470 154 520 142V230H0z" fill="#62b788" opacity=".75"/>
+  <g stroke="#2d7d51" stroke-width="3" stroke-linecap="round" opacity=".55">
+    <path d="M70 186l18-22M110 182l16-24M150 180l14-25M190 178l12-26M230 178l10-26M270 180l8-25M310 182l6-24"/>
+  </g>
+  <g fill="#f2c14e">
+    <path d="M440 150c-4 12-4 22 0 32 4-10 4-20 0-32zM428 160c-1 12 2 21 11 26 0-11-4-20-11-26zM452 160c-7 6-11 15-11 26 9-5 12-14 11-26z"/>
+    <rect x="438" y="180" width="4" height="30" rx="2"/>
+  </g>
+</svg>`);
 
 export default function register(r) {
   r.get('/', (ctx) => {
     const { t } = ctx;
     if (ctx.user) return ctx.res.redirect(homeFor(ctx.user.role));
-    ctx.render('', html`
-      <section class="hero">
-        <h1>${t('home.hero')}</h1>
-        <p>${t('home.sub')}</p>
-        <a class="btn light block" href="/register?role=worker">🧑‍🌾 ${t('home.want_work')}</a>
-        <a class="btn ghost block" style="background:transparent;color:#fff;border-color:#fff" href="/register?role=farmer">🚜 ${t('home.need_workers')}</a>
+    ctx.render('', html`<div class="landing">
+      <section class="hero-band">
+        <div class="hero-in">
+          <div>
+            <span class="eyebrow">${icon('shield')}${t('home.eyebrow')}</span>
+            <h1>${t('home.hero')}</h1>
+            <p class="lead">${t('home.sub')}</p>
+            <div class="roles">
+              <a class="role" href="/register?role=worker"><span class="tile">🧑‍🌾</span>
+                <span><b>${t('home.want_work')}</b><small>${t('home.worker_sub')}</small></span>${icon('right')}</a>
+              <a class="role alt" href="/register?role=farmer"><span class="tile">🚜</span>
+                <span><b>${t('home.need_workers')}</b><small>${t('home.farmer_sub')}</small></span>${icon('right')}</a>
+            </div>
+          </div>
+          ${HERO_ART}
+        </div>
       </section>
-      <div class="card">
-        <h2 style="margin-top:0">${t('home.how')}</h2>
+
+      <section class="trust">
+        <div class="card"><span class="tile">${icon('idcard')}</span><div><b>${t('home.trust1_t')}</b><p>${t('home.trust1')}</p></div></div>
+        <div class="card"><span class="tile">${icon('file')}</span><div><b>${t('home.trust2_t')}</b><p>${t('home.trust2')}</p></div></div>
+        <div class="card"><span class="tile">${icon('cap')}</span><div><b>${t('home.trust3_t')}</b><p>${t('home.trust3')}</p></div></div>
+      </section>
+
+      <section class="section">
+        <h2>${t('home.how')}</h2>
         <ol class="how"><li>${t('home.step1')}</li><li>${t('home.step2')}</li><li>${t('home.step3')}</li></ol>
-      </div>
-      <div class="card"><p>✅ <b>${t('home.free_workers')}</b></p><p class="muted">📞 ${t('home.ussd')}</p></div>
-      <p style="text-align:center"><a href="/login">${t('auth.have_account')}</a></p>`);
+        <div class="callout"><span class="tile">${icon('phone')}</span>
+          <div><p><b>${t('home.free_workers')}</b></p><p class="small">${t('home.ussd')}</p></div></div>
+        <p class="center" style="margin-top:22px"><a href="/login"><b>${t('auth.have_account')}</b></a></p>
+      </section>
+    </div>`, { full: true });
   });
 
   r.get('/lang/:code', (ctx) => {
@@ -49,17 +82,29 @@ export default function register(r) {
   r.get('/register', (ctx) => {
     const { t } = ctx;
     const role = ctx.query.role === 'farmer' ? 'farmer' : 'worker';
-    ctx.render(t(role === 'farmer' ? 'auth.register_farmer' : 'auth.register_worker'), html`
-      <h1>${role === 'farmer' ? '🚜 ' + t('auth.register_farmer') : '🧑‍🌾 ' + t('auth.register_worker')}</h1>
-      ${form(ctx, '/register', html`
-        <input type="hidden" name="role" value="${role}">
-        ${field(t('auth.name'), 'name', { required: true, attrs: 'autocomplete="name" maxlength="80"' })}
-        ${field(t('auth.phone'), 'phone', { type: 'tel', required: true, attrs: 'inputmode="tel" autocomplete="tel" placeholder="080..."' })}
-        ${field(t('auth.pin'), 'pin', { type: 'password', required: true, attrs: 'inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password"' })}
-        ${field(t('auth.pin_confirm'), 'pin2', { type: 'password', required: true, attrs: 'inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password"' })}
-        ${checkbox(html`${t('auth.consent')} (<a href="/terms">Terms</a> · <a href="/privacy">Privacy</a>)`, 'consent', false)}
-        <button class="btn block">${t('auth.create')}</button>`)}
-      <p><a href="/login">${t('auth.have_account')}</a></p>`);
+    ctx.render(t(role === 'farmer' ? 'auth.register_farmer' : 'auth.register_worker'), html`<div class="auth">
+      <div class="auth-card">
+        <img class="brand-mark" src="/icon.svg?v=${ASSET_VERSION}" alt="" width="52" height="52">
+        <h1>${t(role === 'farmer' ? 'auth.register_farmer' : 'auth.register_worker')}</h1>
+        <p class="lead">${t(role === 'farmer' ? 'home.farmer_sub' : 'home.worker_sub')}</p>
+        <nav class="segmented" aria-label="${t('auth.account_type')}">
+          <a href="/register?role=worker" ${role === 'worker' ? raw('aria-current="page"') : ''}>🧑‍🌾 ${t('role.worker')}</a>
+          <a href="/register?role=farmer" ${role === 'farmer' ? raw('aria-current="page"') : ''}>🚜 ${t('role.farmer')}</a>
+        </nav>
+        ${form(ctx, '/register', html`
+          <input type="hidden" name="role" value="${role}">
+          ${field(t('auth.name'), 'name', { required: true, attrs: 'autocomplete="name" maxlength="80"' })}
+          ${field(t('auth.phone'), 'phone', { type: 'tel', required: true, attrs: 'inputmode="tel" autocomplete="tel" placeholder="0803 123 4567"' })}
+          <div class="row">
+            <div class="grow">${field(t('auth.pin'), 'pin', { type: 'password', required: true, attrs: 'inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password"' })}</div>
+            <div class="grow">${field(t('auth.pin_confirm'), 'pin2', { type: 'password', required: true, attrs: 'inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password"' })}</div>
+          </div>
+          ${checkbox(html`${t('auth.consent')} (<a href="/terms">${t('nav.terms')}</a> · <a href="/privacy">${t('nav.privacy')}</a>)`, 'consent', false)}
+          <button class="btn block">${t('auth.create')}${icon('right')}</button>`)}
+        <p class="secure-note">${icon('lock', { cls: 'i-sm' })}${t('auth.secure')}</p>
+      </div>
+      <p class="auth-alt"><a href="/login">${t('auth.have_account')}</a></p>
+    </div>`);
   });
 
   r.post('/register', (ctx) => {
@@ -86,14 +131,21 @@ export default function register(r) {
 
   r.get('/login', (ctx) => {
     const { t } = ctx;
-    ctx.render(t('auth.login_title'), html`
-      <h1>${t('auth.login_title')}</h1>
-      ${form(ctx, '/login', html`
-        <input type="hidden" name="next" value="${ctx.query.next || ''}">
-        ${field(t('auth.phone'), 'phone', { type: 'tel', required: true, attrs: 'inputmode="tel" autocomplete="tel"' })}
-        ${field(t('auth.pin'), 'pin', { type: 'password', required: true, attrs: 'inputmode="numeric" maxlength="6" autocomplete="current-password"' })}
-        <button class="btn block">${t('auth.login')}</button>`)}
-      <p><a href="/register?role=worker">${t('auth.register_worker')}</a> · <a href="/register?role=farmer">${t('auth.register_farmer')}</a></p>`);
+    ctx.render(t('auth.login_title'), html`<div class="auth">
+      <div class="auth-card">
+        <img class="brand-mark" src="/icon.svg?v=${ASSET_VERSION}" alt="" width="52" height="52">
+        <h1>${t('auth.login_title')}</h1>
+        <p class="lead">${t('auth.login_lead')}</p>
+        ${form(ctx, '/login', html`
+          <input type="hidden" name="next" value="${ctx.query.next || ''}">
+          ${field(t('auth.phone'), 'phone', { type: 'tel', required: true, attrs: 'inputmode="tel" autocomplete="tel" placeholder="0803 123 4567" autofocus' })}
+          ${field(t('auth.pin'), 'pin', { type: 'password', required: true, attrs: 'inputmode="numeric" maxlength="6" autocomplete="current-password"' })}
+          <button class="btn block">${t('auth.login')}${icon('right')}</button>`)}
+        <p class="secure-note">${icon('lock', { cls: 'i-sm' })}${t('auth.secure')}</p>
+      </div>
+      <p class="auth-alt">${t('auth.new_here')}<br>
+        <a href="/register?role=worker">${t('auth.register_worker')}</a> · <a href="/register?role=farmer">${t('auth.register_farmer')}</a></p>
+    </div>`);
   });
 
   r.post('/login', (ctx) => {

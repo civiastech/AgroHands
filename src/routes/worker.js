@@ -1,5 +1,5 @@
 import { html, naira } from '../html.js';
-import { form, field, select, checkbox, skillPicker, skillOptions, tierBadge, locationFields, statusPill, fmtDate } from '../views/ui.js';
+import { form, field, select, checkbox, skillPicker, skillOptions, tierBadge, locationFields, statusPill, fmtDate, icon, avatar, progress, sectionHead, emptyState, metaList } from '../views/ui.js';
 import { q, audit, parseJson } from '../db.js';
 import { SKILL_KEYS, skillIcon } from '../data/skills.js';
 import { STATE_NAMES } from '../data/states.js';
@@ -34,44 +34,71 @@ export default function register(r) {
       [w.address_status === 'verified', 'worker.step_address', null],
     ];
     const age = ageFromDob(w.dob);
+    const done = steps.filter(([ok]) => ok).length;
+    const next = steps.find(([ok, , href]) => !ok && href);
     ctx.render(t('worker.title'), html`
-      <div class="row"><h1 class="grow">👋 ${user.name.split(' ')[0]}</h1>${tierBadge(t, tier)}</div>
+      <section class="card card-hero">
+        <div class="row">
+          ${avatar(user.name)}
+          <div class="grow"><span class="small muted">${t('worker.hello')}</span><h1 style="margin:0">${user.name.split(' ')[0]}</h1></div>
+          ${tierBadge(t, tier)}
+        </div>
+        <div style="margin:18px 0 8px" class="row"><span class="grow small"><b>${t('worker.progress', { done, total: steps.length })}</b></span>
+          ${next ? html`<a class="small" style="color:inherit;font-weight:650" href="${next[2]}">${t(next[1])} →</a>` : ''}</div>
+        ${progress((done / steps.length) * 100)}
+        ${form(ctx, '/w/availability', html`
+          <input type="hidden" name="available" value="${w.available ? 0 : 1}">
+          <button class="toggle ${w.available ? 'on' : ''}" style="margin-top:16px" aria-pressed="${w.available ? 'true' : 'false'}">
+            <span><b>${w.available ? t('worker.available') : t('worker.not_available')}</b>
+            <small>${t(w.available ? 'worker.available_hint' : 'worker.unavailable_hint')}</small></span>
+            <span class="knob" aria-hidden="true"></span></button>`)}
+      </section>
       ${age !== null && age < 18 ? html`<p class="flash error">${t('worker.under18')}</p>` : ''}
-      ${form(ctx, '/w/availability', html`
-        <input type="hidden" name="available" value="${w.available ? 0 : 1}">
-        <button class="btn block ${w.available ? '' : 'ghost'}">${w.available ? '🟢 ' + t('worker.available') : '⚪ ' + t('worker.not_available')}</button>`)}
 
-      <h2>📬 ${t('worker.offers')}</h2>
+      ${sectionHead(t('worker.offers'), { count: offers.length })}
       ${offers.length ? offers.map((o) => html`
-        <div class="card">
-          <div class="row"><h3 class="grow">${skillIcon(o.skill)} ${o.title}</h3><b>${naira(o.wage_amount)} / ${t('common.' + o.wage_period)}</b></div>
-          <p class="muted">${t('offer.from')} <b>${o.farm_name}</b>${o.farm_verified ? ' ✔' : ''} · ${o.farm_lga}, ${o.farm_state}<br>
-            📅 ${o.start_date}${o.duration_days ? ` · ${o.duration_days} ${t('common.day')}s` : ''} · ⏰ ${o.hours_per_day}h
-            ${o.accommodation ? ' · 🏠' : ''}${o.meals ? ' · 🍲' : ''}</p>
+        <article class="card">
+          <div class="row" style="align-items:flex-start">
+            <span class="tile">${skillIcon(o.skill)}</span>
+            <div class="grow"><h3>${o.title}</h3>
+              <span class="small muted">${t('offer.from')} <b>${o.farm_name}</b>${o.farm_verified ? html` ${icon('shield', { cls: 'i-sm', label: t('farmer.verified') })}` : ''}</span></div>
+            <div style="text-align:right"><b style="font-size:18px">${naira(o.wage_amount)}</b><br><span class="small muted">${t('common.per_' + o.wage_period)}</span></div>
+          </div>
+          ${metaList([
+            ['pin', `${o.farm_lga}, ${o.farm_state}`],
+            ['calendar', `${o.start_date}${o.duration_days ? ` · ${o.duration_days} ${t('common.day')}s` : ''}`],
+            ['clock', `${o.hours_per_day}h / ${t('common.day')}`],
+            o.accommodation && [null, `🏠 ${t('job.accommodation')}`],
+            o.meals && [null, `🍲 ${t('job.meals')}`],
+          ])}
           ${o.description ? html`<p>${o.description}</p>` : ''}
           <p class="small muted">${t('offer.accept_note')}</p>
-          <div class="row">
-            ${form(ctx, `/w/offers/${o.match_id}/accept`, html`<button class="btn">✅ ${t('worker.accept')}</button>`, { cls: 'inline' })}
-            ${form(ctx, `/w/offers/${o.match_id}/decline`, html`<button class="btn ghost">✖ ${t('worker.decline')}</button>`, { cls: 'inline' })}
+          <div class="actions">
+            ${form(ctx, `/w/offers/${o.match_id}/decline`, html`<button class="btn ghost">${icon('x')}${t('worker.decline')}</button>`)}
+            ${form(ctx, `/w/offers/${o.match_id}/accept`, html`<button class="btn">${icon('check')}${t('worker.accept')}</button>`)}
           </div>
-        </div>`) : html`<p class="card muted">${t('worker.no_offers')}</p>`}
+        </article>`) : emptyState('inbox', t('worker.no_offers'))}
 
-      <h2>📋 ${t('worker.next_steps')}</h2>
-      <ul class="card steps">
-        ${steps.map(([done, key, href, wait]) => html`<li>
-          <span class="${done ? 'ok' : 'todo'}">${done ? '✔' : wait || '○'}</span>
-          <span class="grow">${done || !href ? t(key) : html`<a href="${href}">${t(key)}</a>`}</span></li>`)}
-      </ul>
+      ${(() => {
+        const list = html`<ul class="card steps">
+          ${steps.map(([ok, key, href, wait]) => html`<li class="${ok ? 'done' : ''}">
+            <span class="${ok ? 'ok' : wait ? 'wait' : 'todo'}">${ok ? '✓' : wait || ''}</span>
+            <span class="grow">${ok || !href ? t(key) : html`<a href="${href}">${t(key)}</a>`}</span>
+            ${!ok && href ? html`<a href="${href}" aria-hidden="true" tabindex="-1" class="muted">${icon('right')}</a>` : ''}</li>`)}
+        </ul>`;
+        // Once everything is done the checklist is history: fold it away behind a success line.
+        return done === steps.length
+          ? html`<details class="card" style="margin-top:24px"><summary><span class="tile" style="width:32px;height:32px">${icon('check', { cls: 'i-sm' })}</span>${t('worker.all_done')}</summary>${list}</details>`
+          : html`${sectionHead(t('worker.next_steps'), { action: html`<span class="small muted">${done}/${steps.length}</span>` })}${list}`;
+      })()}
 
-      <h2>📄 ${t('worker.contracts')}</h2>
-      ${contracts.length ? html`<div class="card"><table>
-        ${contracts.map((c) => html`<tr><td><a href="/c/${c.id}">${c.ref}</a><br><span class="small muted">${c.farm_name}</span></td>
-          <td>${statusPill(t, 'contract', c.status)}</td><td class="small">${c.start_date}</td></tr>`)}
-      </table></div>` : html`<p class="muted">${t('common.none')}</p>`}
-
-      <p class="row"><a class="btn ghost small" href="/w/profile">✏️ ${t('worker.profile')}</a>
-        <a class="btn ghost small" href="/academy">🎓 ${t('nav.academy')}</a></p>
-      <p class="small muted"><a href="/me/data">${t('me.data')}</a> · <a href="/me/delete">${t('me.delete')}</a></p>`);
+      ${sectionHead(t('worker.contracts'))}
+      ${contracts.length ? html`<div class="list">
+        ${contracts.map((c) => html`<a class="list-item" href="/c/${c.id}"><span class="tile">${icon('file')}</span>
+          <span class="grow"><b>${c.farm_name}</b>
+            <span class="sub row" style="gap:8px;margin-top:4px">${statusPill(t, 'contract', c.status)}${c.ref} · ${c.start_date}</span></span>
+          ${icon('right', { cls: 'chev' })}</a>`)}
+      </div>` : emptyState('file', t('worker.no_contracts'))}`);
   });
 
   r.post('/w/availability', (ctx) => {

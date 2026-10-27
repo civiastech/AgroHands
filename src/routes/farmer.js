@@ -1,5 +1,5 @@
 import { html, naira } from '../html.js';
-import { form, field, select, checkbox, skillOptions, locationFields, statusPill, maskName, tierBadge, stars } from '../views/ui.js';
+import { form, field, select, checkbox, skillOptions, locationFields, statusPill, maskName, tierBadge, icon, avatar, ring, stat, progress, sectionHead, emptyState, metaList, backLink } from '../views/ui.js';
 import { q, audit, parseJson } from '../db.js';
 import { SKILL_KEYS, skillIcon } from '../data/skills.js';
 import { STATE_NAMES } from '../data/states.js';
@@ -33,26 +33,47 @@ export default function register(r) {
     const contracts = q.all(
       `SELECT c.*, u.name AS worker_name FROM contracts c JOIN users u ON u.id = c.worker_id
        WHERE c.farm_id = ? ORDER BY c.id DESC LIMIT 30`, farm.id);
+    const openJobs = jobs.filter((j) => j.status === 'open');
+    const pastJobs = jobs.filter((j) => j.status !== 'open');
+    const sum = (k) => jobs.reduce((n, j) => n + (j[k] || 0), 0);
     ctx.render(t('farmer.title'), html`
-      <div class="row"><h1 class="grow">🚜 ${farm.name}</h1>
-        ${farm.verified ? html`<span class="badge tier-gold">✔ ${t('farmer.verified')}</span>` : ''}</div>
-      ${farm.verified ? '' : html`<p class="flash">${t('farmer.unverified')}</p>`}
-      <a class="btn block" href="/f/jobs/new">➕ ${t('farmer.post_job')}</a>
+      <section class="card card-hero">
+        <div class="row" style="align-items:flex-start;flex-wrap:nowrap">
+          <span class="tile lg" style="background:rgb(255 255 255 / 16%)">🚜</span>
+          <div class="grow"><span class="small muted">${t('farmer.title')}</span><h1 style="margin:2px 0 4px">${farm.name}</h1>
+            <div class="row" style="gap:8px"><span class="small muted">${icon('pin', { cls: 'i-sm' })}</span><span class="small muted">${[farm.lga, farm.state].filter(Boolean).join(', ')}</span>
+            ${farm.verified ? html`<span class="badge tier-gold">${icon('shield', { cls: 'i-sm' })}${t('farmer.verified')}</span>` : ''}</div></div>
+        </div>
+        <a class="btn accent block" style="margin-top:18px" href="/f/jobs/new">${icon('plus')}${t('farmer.post_job')}</a>
+      </section>
+      ${farm.verified ? '' : html`<p class="flash info">${t('farmer.unverified')}</p>`}
 
-      <h2>📋 ${t('farmer.jobs')}</h2>
-      ${jobs.length ? jobs.map((j) => html`<a class="card" style="display:block;text-decoration:none;color:inherit" href="/f/jobs/${j.id}">
-          <div class="row"><b class="grow">${skillIcon(j.skill)} ${j.title}</b>${statusPill(t, 'job', j.status)}</div>
-          <span class="small muted">${j.headcount} × ${naira(j.wage_amount)}/${t('common.' + j.wage_period)} · 📅 ${j.start_date} · ✉ ${j.offered} · ✅ ${j.hired}/${j.headcount}</span>
-        </a>`) : html`<p class="muted">${t('common.none')}</p>`}
+      <div class="stats">
+        ${stat(t('farmer.stat_open'), openJobs.length)}
+        ${stat(t('farmer.stat_offers'), sum('offered'))}
+        ${stat(t('farmer.stat_hired'), sum('hired'))}
+        ${stat(t('farmer.stat_active'), contracts.filter((c) => c.status === 'active').length)}
+      </div>
 
-      <h2>🤝 ${t('farmer.contracts')}</h2>
-      ${contracts.length ? html`<div class="card"><table>
-        ${contracts.map((c) => html`<tr><td><a href="/c/${c.id}">${c.ref}</a></td><td>${c.worker_name}</td>
-          <td>${statusPill(t, 'contract', c.status)}</td></tr>`)}</table></div>` : html`<p class="muted">${t('common.none')}</p>`}
+      ${sectionHead(t('farmer.jobs'), { count: openJobs.length })}
+      ${openJobs.length ? openJobs.map((j) => html`<a class="card" href="/f/jobs/${j.id}">
+          <div class="row"><span class="tile">${skillIcon(j.skill)}</span>
+            <div class="grow"><b>${j.title}</b><span class="small muted" style="display:block">${j.headcount} × ${naira(j.wage_amount)} ${t('common.per_' + j.wage_period)}</span></div>
+            ${statusPill(t, 'job', j.status)}</div>
+          ${metaList([['calendar', j.start_date], ['send', `${j.offered} ${t('farmer.stat_offers').toLowerCase()}`], ['users', `${j.hired}/${j.headcount} ${t('farmer.stat_hired').toLowerCase()}`]])}
+          ${progress((j.hired / Math.max(1, j.headcount)) * 100)}
+        </a>`) : emptyState('briefcase', t('farmer.no_jobs'), html`<a class="btn" href="/f/jobs/new">${icon('plus')}${t('farmer.post_job')}</a>`)}
+      ${pastJobs.length ? html`<details class="card"><summary>${t('farmer.past_jobs')} <span class="count" style="background:var(--surface-2);color:var(--ink-2)">${pastJobs.length}</span></summary>
+        <div class="list" style="box-shadow:none;margin-bottom:0">${pastJobs.map((j) => html`<a class="list-item" href="/f/jobs/${j.id}"><span class="tile">${skillIcon(j.skill)}</span>
+          <span class="grow"><b>${j.title}</b><span class="sub row" style="gap:8px;margin-top:4px">${statusPill(t, 'job', j.status)}${j.start_date} · ${j.hired}/${j.headcount}</span></span>
+          ${icon('right', { cls: 'chev' })}</a>`)}</div></details>` : ''}
 
-      <p class="row"><a class="btn ghost small" href="/f/farm">✏️ ${t('farmer.farm')}</a>
-        <a class="btn ghost small" href="/academy">🎓 ${t('nav.academy')}</a></p>
-      <p class="small muted"><a href="/me/data">${t('me.data')}</a> · <a href="/me/delete">${t('me.delete')}</a></p>`);
+      ${sectionHead(t('farmer.contracts'))}
+      ${contracts.length ? html`<div class="list">
+        ${contracts.map((c) => html`<a class="list-item" href="/c/${c.id}">${avatar(c.worker_name)}
+          <span class="grow"><b>${c.worker_name}</b><span class="sub row" style="gap:8px;margin-top:4px">${statusPill(t, 'contract', c.status)}${c.ref}</span></span>
+          ${icon('right', { cls: 'chev' })}</a>`)}
+      </div>` : emptyState('users', t('farmer.no_contracts'))}`);
   });
 
   r.get('/f/farm', (ctx) => {
@@ -156,40 +177,48 @@ export default function register(r) {
     const fullTime = job.employment_type !== 'casual';
     const belowMin = fullTime && dailyWage(job.wage_amount, job.wage_period) * 26 < config.minWageMonthly;
     ctx.render(job.title, html`
-      <p><a href="/f">← ${t('common.back')}</a></p>
-      <div class="row"><h1 class="grow">${skillIcon(job.skill)} ${job.title}</h1>${statusPill(t, 'job', job.status)}</div>
-      <p class="muted">${t('skill.' + job.skill)} · ${job.headcount} × ${naira(job.wage_amount)}/${t('common.' + job.wage_period)} ·
-        ${t('job.' + job.employment_type)} · 📅 ${job.start_date}${job.duration_days ? ` (${job.duration_days}d)` : ''} ·
-        ${job.accommodation ? '🏠 ' : ''}${job.meals ? '🍲 ' : ''}≥ ${t('tier.' + job.min_tier)}</p>
+      ${backLink('/f', t('common.back'))}
+      <div class="page-head"><span class="tile lg">${skillIcon(job.skill)}</span>
+        <div class="grow"><h1>${job.title}</h1><p>${t('skill.' + job.skill)} · ${t('job.' + job.employment_type)}</p></div>
+        ${statusPill(t, 'job', job.status)}</div>
+      ${metaList([
+        ['wallet', `${job.headcount} × ${naira(job.wage_amount)} ${t('common.per_' + job.wage_period)}`],
+        ['calendar', `${job.start_date}${job.duration_days ? ` · ${job.duration_days} ${t('common.day')}s` : ''}`],
+        ['shield', `≥ ${t('tier.' + job.min_tier)}`],
+        job.accommodation && [null, `🏠 ${t('job.accommodation')}`],
+        job.meals && [null, `🍲 ${t('job.meals')}`],
+      ])}
       ${belowMin ? html`<p class="flash error">${t('job.under_min_wage')}</p>` : ''}
-      ${job.status === 'open' ? form(ctx, `/f/jobs/${job.id}/refresh`, html`<button class="btn ghost block">🔄 ${t('job.refresh')}</button>`) : ''}
 
-      <h2>⭐ ${t('job.shortlist')}</h2>
+      ${sectionHead(t('job.shortlist'), { count: rows.length, action: job.status === 'open'
+        ? form(ctx, `/f/jobs/${job.id}/refresh`, html`<button class="btn ghost small">${icon('refresh')}${t('job.refresh')}</button>`) : '' })}
       ${rows.length ? rows.map((m) => {
         const bd = parseJson(m.breakdown, {});
-        return html`<div class="card">
-          <div class="row">
-            <div class="grow"><h3>${maskName(m.name)} ${tierBadge(t, m.tier)}</h3>
-              <span class="small muted">${t('worker.years')}: ${m.years_exp} · ${m.lga}, ${m.state} · ${naira(m.expected_wage)}/${t('common.' + m.wage_period)}</span></div>
-            <div style="text-align:right"><div class="score">${Math.round(m.score)}</div><span class="small muted">${t('job.score')}</span></div>
+        return html`<article class="card">
+          <div class="row" style="align-items:flex-start">
+            ${avatar(m.name)}
+            <div class="grow"><h3>${maskName(m.name)}</h3>
+              <div class="row" style="gap:6px;margin-top:4px">${tierBadge(t, m.tier)}<span class="small muted">${m.lga}, ${m.state}</span></div></div>
+            ${ring(m.score, t('job.score'))}
           </div>
-          <div class="grid small" style="margin:8px 0">
-            <span>📍 ${t('job.distance')}: ${bd.km ?? '?'} km${bd.kmPrecise ? '' : ' ≈'}${bd.relocating ? ' 🏠' : ''}</span>
-            <span>⭐ ${t('job.rating')}: ${m.rating_count ? stars(m.avg_rating) : t('job.new_worker')}</span>
-            <span>🔁 ${t('job.reliability')}: ${Math.round(((bd.reliability || 0) / 25) * 100)}%</span>
-            ${bd.assessed ? html`<span>🎯 Skill assessed</span>` : ''}
-          </div>
-          <div class="small muted">${parseJson(m.skills).map((s) => skillIcon(s)).join(' ')}</div>
-          <div style="margin-top:8px">
-            ${m.status === 'shortlisted' && job.status === 'open'
-              ? form(ctx, `/f/jobs/${job.id}/offer/${m.worker_id}`, html`<button class="btn small">✉ ${t('job.send_offer')}</button>`)
-              : m.status === 'offered' ? html`<span class="pill s-pending">✉ ${t('job.offered')}</span>`
-              : m.status === 'accepted' ? html`<span class="pill s-active">✅ ${t('job.accepted')}</span> ${m.contract_id ? html`<a href="/c/${m.contract_id}">${t('contract.title')} →</a>` : ''}`
-              : html`<span class="pill">${t('job.declined')}</span>`}
-          </div>
-        </div>`;
-      }) : html`<p class="card muted">${t('job.no_matches')}</p>`}
-      ${job.status === 'open' ? form(ctx, `/f/jobs/${job.id}/close`, html`<button class="btn ghost small">${t('job.close')}</button>`) : ''}`);
+          ${metaList([
+            ['pin', `${bd.km ?? '?'} km${bd.kmPrecise ? '' : ' ≈'}${bd.relocating ? ' · 🏠' : ''}`],
+            ['star', m.rating_count ? `${Number(m.avg_rating).toFixed(1)} (${m.rating_count})` : t('job.new_worker')],
+            ['refresh', `${t('job.reliability')} ${Math.round(((bd.reliability || 0) / 25) * 100)}%`],
+            ['briefcase', `${m.years_exp} ${t('job.years_short')}`],
+            ['wallet', `${naira(m.expected_wage)} ${t('common.per_' + m.wage_period)}`],
+            bd.assessed && ['check', t('job.assessed')],
+          ])}
+          <p class="small muted" style="margin:0 0 12px;font-size:18px;letter-spacing:2px">${parseJson(m.skills).map((s) => skillIcon(s)).join(' ')}</p>
+          ${m.status === 'shortlisted' && job.status === 'open'
+            ? form(ctx, `/f/jobs/${job.id}/offer/${m.worker_id}`, html`<button class="btn block" style="margin:0">${icon('send')}${t('job.send_offer')}</button>`)
+            : m.status === 'offered' ? html`<span class="pill s-pending">${t('job.offered')}</span>`
+            : m.status === 'accepted' ? html`<div class="row"><span class="pill s-active">${t('job.accepted')}</span>
+                ${m.contract_id ? html`<a class="btn ghost small" href="/c/${m.contract_id}">${icon('file')}${t('contract.title')}</a>` : ''}</div>`
+            : html`<span class="pill">${t('job.declined')}</span>`}
+        </article>`;
+      }) : emptyState('users', t('job.no_matches'))}
+      ${job.status === 'open' ? form(ctx, `/f/jobs/${job.id}/close`, html`<button class="btn ghost block" style="margin-top:24px">${icon('x')}${t('job.close')}</button>`, { cls: 'noprint' }) : ''}`);
   });
 
   r.post('/f/jobs/:id/refresh', (ctx) => {

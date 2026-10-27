@@ -1,7 +1,7 @@
 // Field-agent desk: assisted registration and the human checks that make tiers trustworthy.
 import { randomInt } from 'node:crypto';
 import { html } from '../html.js';
-import { form, field, select, tierBadge, fmtDate, stateOptions } from '../views/ui.js';
+import { form, field, select, tierBadge, fmtDate, stateOptions, icon, sectionHead } from '../views/ui.js';
 import { q, audit, parseJson } from '../db.js';
 import { normalisePhone, ninHash } from '../auth.js';
 import { validNin } from '../lib/verify.js';
@@ -28,17 +28,33 @@ export default function register(r) {
     const aQueue = q.all(`SELECT u.id, u.name, w.town, w.lga, w.state FROM workers w JOIN users u ON u.id = w.user_id WHERE w.address_status = 'none' AND w.nin_status = 'verified' AND u.status = 'active' LIMIT 50`);
     const fQueue = q.all(`SELECT f.*, u.name AS owner, u.phone FROM farms f JOIN users u ON u.id = f.owner_id WHERE f.verified = 0 LIMIT 50`);
     const disputes = q.all(`SELECT d.*, c.ref FROM disputes d JOIN contracts c ON c.id = d.contract_id WHERE d.status = 'open' ORDER BY d.id LIMIT 50`);
-    const list = (title, rows, render) => html`<h2>${title} (${rows.length})</h2>${rows.length ? html`<div class="card"><table>${rows.map(render)}</table></div>` : html`<p class="muted">${t('common.none')}</p>`}`;
+    // Each queue is a tappable list: name on top, the detail the agent needs underneath.
+    const queue = (iconName, title, rows, render) => html`
+      ${sectionHead(html`${title}`, { count: rows.length })}
+      ${rows.length ? html`<div class="list">${rows.map(render)}</div>` : html`<p class="small muted" style="margin:-4px 0 0">${t('common.none')}</p>`}`;
+    const item = (href, iconName, name, sub) => html`<a class="list-item" href="${href}"><span class="tile">${icon(iconName)}</span>
+      <span class="grow"><b>${name}</b><span class="sub">${sub}</span></span>${icon('right', { cls: 'chev' })}</a>`;
+    const total = ninQueue.length + gQueue.length + aQueue.length + fQueue.length + disputes.length;
     ctx.render(t('agent.title'), html`
-      <h1>🧭 ${t('agent.title')}</h1>
-      <form method="get" action="/a/find" class="row"><div class="grow">${field(t('agent.find'), 'phone', { type: 'tel', attrs: 'inputmode="tel"' })}</div><button class="btn">🔍</button></form>
-      <a class="btn block" href="/a/register">➕ ${t('agent.register_worker')}</a>
-      ${list('🆔 ' + t('agent.nin_reviews'), ninQueue, (w) => html`<tr><td><a href="/a/w/${w.id}">${w.name}</a></td><td>${w.phone}</td><td>…${w.nin_last4}</td><td>${w.lga}, ${w.state}</td></tr>`)}
-      ${list('🤝 ' + t('agent.guarantors'), gQueue, (w) => html`<tr><td><a href="/a/w/${w.id}">${w.name}</a></td><td>${w.guarantor_name}</td><td><a href="tel:${w.guarantor_phone}">${w.guarantor_phone}</a></td></tr>`)}
-      ${list('🏠 ' + t('agent.addresses'), aQueue, (w) => html`<tr><td><a href="/a/w/${w.id}">${w.name}</a></td><td>${w.town}, ${w.lga}, ${w.state}</td></tr>`)}
-      ${list('🚜 ' + t('agent.farms'), fQueue, (f) => html`<tr><td>${f.name}<br><span class="small muted">${f.owner} · ${f.phone}</span></td><td>${f.address}, ${f.lga}, ${f.state}${f.lat ? html`<br><a href="https://maps.google.com/?q=${f.lat},${f.lng}" target="_blank" rel="noopener">map</a>` : ''}</td>
-        <td>${form(ctx, `/a/f/${f.id}/verify`, html`<button class="btn small">✔ ${t('agent.verify_farm')}</button>`)}</td></tr>`)}
-      ${list('⚠️ Disputes', disputes, (d) => html`<tr><td><a href="/c/${d.contract_id}">${d.ref}</a></td><td>${d.category}</td><td class="small">${d.description}</td><td>${fmtDate(d.created_at)}</td></tr>`)}`, { narrow: false });
+      <section class="card card-hero">
+        <div class="row"><span class="tile lg" style="background:rgb(255 255 255 / 16%);color:inherit">${icon('users', { cls: 'i-lg' })}</span>
+          <div class="grow"><h1 style="margin:0">${t('agent.title')}</h1><span class="small muted">${t('agent.tasks')}: <b>${total}</b></span></div></div>
+        <form method="get" action="/a/find" class="row" style="margin-top:16px;flex-wrap:nowrap">
+          <label class="grow"><span class="sr-only">${t('agent.find')}</span>
+            <input type="tel" name="phone" inputmode="tel" placeholder="${t('agent.find')}"></label>
+          <button class="btn accent" aria-label="${t('agent.find')}">${icon('search')}</button></form>
+      </section>
+      <a class="btn block" href="/a/register">${icon('plus')}${t('agent.register_worker')}</a>
+      ${queue('idcard', t('agent.nin_reviews'), ninQueue, (w) => item(`/a/w/${w.id}`, 'idcard', w.name, `${w.phone} · NIN …${w.nin_last4} · ${w.lga}, ${w.state}`))}
+      ${queue('phone', t('agent.guarantors'), gQueue, (w) => item(`/a/w/${w.id}`, 'phone', w.name, `${w.guarantor_name} · ${w.guarantor_phone}`))}
+      ${queue('home', t('agent.addresses'), aQueue, (w) => item(`/a/w/${w.id}`, 'home', w.name, [w.town, w.lga, w.state].filter(Boolean).join(', ')))}
+      ${sectionHead(t('agent.farms'), { count: fQueue.length })}
+      ${fQueue.length ? html`<div class="list">${fQueue.map((f) => html`<div class="list-item"><span class="tile">🚜</span>
+        <span class="grow"><b>${f.name}</b><span class="sub">${f.owner} · <a href="tel:${f.phone}">${f.phone}</a></span>
+          <span class="sub">${f.address}, ${f.lga}, ${f.state}${f.lat ? html` · <a href="https://maps.google.com/?q=${f.lat},${f.lng}" target="_blank" rel="noopener">map</a>` : ''}</span></span>
+        ${form(ctx, `/a/f/${f.id}/verify`, html`<button class="btn small">${icon('check')}${t('agent.verify_farm')}</button>`)}</div>`)}</div>`
+        : html`<p class="small muted" style="margin:-4px 0 0">${t('common.none')}</p>`}
+      ${queue('alert', 'Disputes', disputes, (d) => item(`/c/${d.contract_id}`, 'alert', `${d.ref} · ${d.category}`, `${fmtDate(d.created_at)} · ${d.description}`))}`);
   });
 
   r.get('/a/find', (ctx) => {

@@ -56,10 +56,15 @@ test('every response carries a request id and security headers', async () => {
 test('static assets are versioned and cached immutably', async () => {
   const page = await (await fetch(`${base}/login`)).text();
   const href = page.match(/href="(\/static\/app\.css\?v=[^"]+)"/)?.[1];
-  assert.ok(href, 'stylesheet URL carries a build version');
+  assert.ok(href, 'stylesheet URL carries a version');
+  const { ASSET_VERSION, CSS, JS } = await import('../src/routes/static.js');
+  const { createHash } = await import('node:crypto');
+  assert.equal(href, `/static/app.css?v=${ASSET_VERSION}`);
+  // The version is a content hash, so any CSS/JS change produces new URLs (no stale year-long caches).
+  assert.notEqual(ASSET_VERSION, createHash('sha256').update(CSS + ' ').update(JS).digest('hex').slice(0, 10));
   const css = await fetch(base + href);
   assert.match(css.headers.get('cache-control'), /immutable/);
-  assert.match(await (await fetch(`${base}/sw.js`)).text(), new RegExp(`ah-${config.buildId}`));
+  assert.match(await (await fetch(`${base}/sw.js`)).text(), new RegExp(`ah-${ASSET_VERSION}`));
 });
 
 test('malformed URLs are a 404, not a crash', async () => {

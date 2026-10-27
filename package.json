@@ -1,6 +1,6 @@
 {
   "name": "agrohands",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AgroHands — verified farm workforce platform for Nigeria. Zero third-party dependencies.",
   "type": "module",
   "private": true,
