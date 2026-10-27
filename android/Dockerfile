@@ -1,6 +1,6 @@
 # Android build toolchain for the Google Play app (Trusted Web Activity). Build-time only; never deployed.
 #   Used by android/build.sh — you don't need Android Studio or Java on your machine.
-FROM eclipse-temurin:17-jdk-jammy
+FROM eclipse-temurin:22-jdk-jammy
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates \
  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
