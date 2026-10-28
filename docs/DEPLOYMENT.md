@@ -8,6 +8,28 @@ Three ways to run it, from simplest to most production-ready:
 | Docker, local | `docker compose up -d --build` | Trying the real container on a laptop |
 | Docker, production | `./deploy/deploy.sh` | Live: HTTPS, backups, hardened containers |
 
+## Fastest path: a new server in 15 minutes
+
+1. **Rent a server.** Any provider works; for example Hetzner Cloud **CX22** (2 vCPU, 4 GB RAM, about €4.5/month) or DigitalOcean (2 GB, about $12/month), with **Ubuntu 24.04**. Add your SSH public key when you create it (on Windows: `type %USERPROFILE%\.ssh\id_ed25519.pub`).
+2. **Log in and run the bootstrap** (replace the IP and use your own phone number):
+
+   ```bash
+   ssh root@YOUR_SERVER_IP
+   curl -fsSL https://raw.githubusercontent.com/civiastech/AgroHands/main/deploy/bootstrap.sh | ADMIN_PHONES=0803XXXXXXX bash
+   ```
+
+   It installs updates, Docker and a firewall, downloads the code, writes `/opt/agrohands/.env` with fresh secrets, then builds (running the test suite), starts the app and prints your address. With no domain yet you get `https://YOUR-IP-WITH-DASHES.sslip.io`, a free name that points at your server so HTTPS works immediately. With a domain whose DNS already points at the server, add `DOMAIN=agrohands.ng` before `bash`.
+3. **Create your admin account** (the command is printed at the end; it shows a one-time PIN):
+
+   ```bash
+   cd /opt/agrohands && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app node scripts/create-admin.js 0803XXXXXXX "Your Name"
+   ```
+
+4. **Save `SESSION_SECRET` and `BACKUP_ENCRYPTION_KEY`** from `/opt/agrohands/.env` in your password manager.
+5. **Add service keys** as they arrive (`nano /opt/agrohands/.env`, then `./deploy/deploy.sh`): Africa's Talking first, because nobody else can sign up until sign-up SMS work. Then backups, monitoring and Paystack, as described below.
+
+Moving to a real domain later: point its A record at the server, set `DOMAIN` and `BASE_URL=https://DOMAIN` in `.env`, run `./deploy/deploy.sh`. Accounts and data are unaffected. The Play Store app must use the final domain, so switch **before** building the release for Google Play.
+
 ## 1. Production with Docker (recommended)
 
 ### Server

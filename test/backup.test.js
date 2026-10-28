@@ -154,3 +154,27 @@ test('error alerts: hook fires on error logs, throttled per message and per hour
   const text = formatAlert('unhandled error', { err: { message: 'boom' }, method: 'POST', path: '/c/1/sign', reqId: 'r-1' }, { env: 'production', host: 'https://agrohands.ng', version: '1.3.0' });
   assert.equal(text, '🚨 AgroHands production (https://agrohands.ng, v1.3.0): unhandled error — boom [POST /c/1/sign] ref r-1');
 });
+
+test('create-admin: first admin from the command line, with a one-time PIN; promoting resets the PIN', async () => {
+  const env = { ...process.env, DB_PATH: join(dir, 'admin.db') };
+  const node = [process.execPath, '--disable-warning=ExperimentalWarning', 'scripts/create-admin.js'];
+  const first = await run(node[0], [...node.slice(1), '+234 803 123 4567', 'Joshua', 'Oladeji'], { env });
+  const pin = /One-time PIN: (\d{6})/.exec(first.stdout)[1];
+  const db = new DatabaseSync(env.DB_PATH);
+  const u = db.prepare("SELECT * FROM users WHERE phone = '08031234567'").get();
+  assert.equal(u.role, 'admin');
+  assert.equal(u.name, 'Joshua Oladeji');
+  assert.ok(u.phone_verified_at > 0);
+  db.close();
+  const { verifyPin } = await import('../src/auth.js');
+  assert.ok(verifyPin(pin, u.pin_hash));
+
+  const again = await run(node[0], [...node.slice(1), '08031234567'], { env });
+  assert.match(again.stdout, /Promoted admin 08031234567/);
+  const pin2 = /One-time PIN: (\d{6})/.exec(again.stdout)[1];
+  const db2 = new DatabaseSync(env.DB_PATH);
+  const u2 = db2.prepare("SELECT pin_hash FROM users WHERE phone = '08031234567'").get();
+  db2.close();
+  assert.ok(verifyPin(pin2, u2.pin_hash) && (pin2 === pin || !verifyPin(pin, u2.pin_hash)), 'old PIN replaced');
+  await assert.rejects(run(node[0], [...node.slice(1), 'not-a-phone'], { env }), (e) => e.code === 2);
+});

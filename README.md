@@ -111,6 +111,10 @@ Every setting is documented in [.env.example](.env.example). In production the a
 | Domain | about ₦3,000–₦15,000 a year | Optional |
 | Recruiter's licence + CAC | Per the blueprint | Before charging fees |
 
+## Go live
+
+On a fresh Ubuntu server, as root: `curl -fsSL https://raw.githubusercontent.com/civiastech/AgroHands/main/deploy/bootstrap.sh | ADMIN_PHONES=0803XXXXXXX bash`. Step-by-step instructions: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#fastest-path-a-new-server-in-15-minutes).
+
 ## Before launch checklist
 
 - [ ] Native speakers review the Pidgin, Yorùbá, Hausa, Igbo and French files (`src/i18n/*.js`)
