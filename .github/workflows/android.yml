@@ -45,7 +45,9 @@ jobs:
       - name: Start the app to serve icons
         run: |
           docker build -q -t agrohands:ci .
-          docker run -d --name app -p 3000:3000 -e SESSION_SECRET=$(openssl rand -hex 32) -e BASE_URL=https://ci.example agrohands:ci
+          # Placeholder sandbox SMS credentials: production config requires an SMS provider; nothing is texted here.
+          docker run -d --name app -p 3000:3000 -e SESSION_SECRET=$(openssl rand -hex 32) -e BASE_URL=https://ci.example \
+            -e AT_USERNAME=sandbox -e AT_API_KEY=ci-placeholder agrohands:ci
           for i in $(seq 1 30); do [ "$(docker inspect -f '{{.State.Health.Status}}' app)" = healthy ] && break; sleep 1; done
           curl -fsS http://localhost:3000/icons/icon-512.png -o /dev/null
 
