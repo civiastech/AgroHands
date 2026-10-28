@@ -337,3 +337,51 @@ test('every SMS text is one GSM 7-bit message (160 characters) in every language
   }
   assert.deepEqual(problems, []);
 });
+
+test('SMS pumping guards: codes per IP per hour, and a hard daily SMS budget', async () => {
+  const { smsLast24h } = await import('../src/lib/sms.js');
+  const saved = { ...config.sms };
+  try {
+    // Per IP: every test client is 127.0.0.1, so allow just two more codes from it.
+    config.sms.otpPerIpHour = q.get("SELECT COUNT(*) AS n FROM otp_codes WHERE ip = '127.0.0.1' AND created_at > unixepoch() - 3600").n + 2;
+    for (const phone of ['08062220001', '08062220002']) {
+      const r = await new Client().post('/register', { role: 'worker', name: 'Ip Test', phone, pin: '1111', pin2: '1111', consent: '1' });
+      assert.match(r.location, /^\/verify/);
+    }
+    const c = new Client();
+    const blocked = await c.post('/register', { role: 'worker', name: 'Ip Test', phone: '08062220003', pin: '1111', pin2: '1111', consent: '1' });
+    assert.match(blocked.location, /^\/register/);
+    assert.match(flash(c), /Too many codes/);
+    assert.equal(sentSms.filter((m) => m.to === '08062220003').length, 0);
+    config.sms.otpPerIpHour = saved.otpPerIpHour;
+
+    // Daily budget reached: no code is created or sent, the person gets a clear message, alerts stop too.
+    config.sms.dailyLimit = smsLast24h();
+    const d = new Client();
+    const r = await d.post('/register', { role: 'worker', name: 'Budget Test', phone: '08062220004', pin: '1111', pin2: '1111', consent: '1' });
+    assert.match(r.location, /^\/register/);
+    assert.match(flash(d), /can't send codes right now/);
+    assert.equal(q.get("SELECT COUNT(*) AS n FROM otp_codes WHERE phone = '08062220004'").n, 0);
+    assert.equal(queueSms('08031234567', 'offer', 'x'), null, 'notifications are held back too');
+    assert.equal((await new Client().get('/login')).status, 200, 'the site itself keeps working');
+  } finally {
+    Object.assign(config.sms, saved);
+  }
+  const ok = await new Client().post('/register', { role: 'worker', name: 'Budget Test', phone: '08062220004', pin: '1111', pin2: '1111', consent: '1' });
+  assert.match(ok.location, /^\/verify/, 'works again once under the limit');
+});
+
+test('lockout holds against parallel guessing: 20 PINs at once get at most 5 real checks', async () => {
+  const phone = '08061110010';
+  createUser({ phone, pin: '9182', role: 'farmer', name: 'Parallel Target' });
+  const { checkPin } = await import('../src/auth.js');
+  const id = userBy(phone).id;
+  const guesses = Array.from({ length: 20 }, (_, i) => String(1000 + i));
+  const results = await Promise.all(guesses.map((g) => checkPin(id, g)));
+  assert.equal(results.filter((r) => r === 'wrong').length, 5, 'only 5 guesses were actually checked');
+  assert.equal(results.filter((r) => r === 'locked').length, 15);
+  assert.ok(userBy(phone).locked_until > Date.now() / 1000, 'account locked');
+  assert.equal(await checkPin(id, '9182'), 'locked', 'even the right PIN waits out the lock');
+  q.run('UPDATE users SET locked_until = NULL, failed_pins = 0 WHERE id = ?', id);
+  assert.equal(await checkPin(id, '9182'), 'ok');
+});

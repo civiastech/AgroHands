@@ -379,4 +379,5 @@ export default {
   'pay.required': "This course needs payment before the quiz.",
   'pay.unavailable': "Payment is not available right now. Please try again later.",
   'pay.not_in_app': "Paid courses are not available in the Android app.",
+  'otp.unavailable': "We can't send codes right now. Please try again later or ask an AgroHands agent for help.",
 };

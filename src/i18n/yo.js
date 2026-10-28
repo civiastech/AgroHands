@@ -285,4 +285,5 @@ export default {
   'pay.required': "Ẹ̀kọ́ yìí nílò ìsanwó kí o tó ṣe ìdánwò.",
   'pay.unavailable': "Ìsanwó kò sí lọ́wọ́lọ́wọ́. Jọ̀wọ́ gbìyànjú lẹ́yìn náà.",
   'pay.not_in_app': "Àwọn ẹ̀kọ́ tí a ń sanwó fún kò sí nínú áàpù Android.",
+  'otp.unavailable': "A kò lè fi kóòdù ránṣẹ́ báyìí. Jọ̀wọ́ gbìyànjú lẹ́yìn náà tàbí béèrè ìrànlọ́wọ́ lọ́wọ́ aṣojú AgroHands.",
 };

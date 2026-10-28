@@ -18,9 +18,19 @@ export const sentSms = [];
 /** 08031234567 → +2348031234567 */
 export const toE164 = (phone) => (/^0\d{10}$/.test(phone) ? `+234${phone.slice(1)}` : phone);
 
-/** Queues a message. Returns the outbox id. Call kick() (or let the worker run) to deliver it. */
+/** Messages queued in the last 24 hours (the window the daily limit applies to). */
+export const smsLast24h = () => q.get('SELECT COUNT(*) AS n FROM sms_outbox WHERE created_at > unixepoch() - 86400').n;
+export const smsBudgetLeft = () => Math.max(0, config.sms.dailyLimit - smsLast24h());
+
+/** Queues a message. Returns the outbox id, or null if not queued. Call kick() (or let the worker run) to deliver it. */
 export function queueSms(phone, kind, body, userId = null) {
   if (!/^0[789][01]\d{8}$/.test(String(phone || ''))) return null; // deleted accounts, malformed numbers
+  if (smsBudgetLeft() <= 0) {
+    // Error level so the alert webhook fires (throttled): either real growth or someone running up the bill.
+    log.error('SMS daily limit reached — message not sent', { kind, limit: config.sms.dailyLimit });
+    inc('sms_limited');
+    return null;
+  }
   const { lastInsertRowid } = q.run('INSERT INTO sms_outbox (user_id, phone, kind, body) VALUES (?, ?, ?, ?)', userId, phone, kind, body);
   return Number(lastInsertRowid);
 }

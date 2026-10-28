@@ -38,6 +38,8 @@ export default function register(r) {
       agrohands_jobs_open: n("SELECT COUNT(*) AS n FROM jobs WHERE status = 'open'"),
       agrohands_contracts_active: n("SELECT COUNT(*) AS n FROM contracts WHERE status = 'active'"),
       agrohands_disputes_open: n("SELECT COUNT(*) AS n FROM disputes WHERE status = 'open'"),
+      agrohands_sms_last_24h: n('SELECT COUNT(*) AS n FROM sms_outbox WHERE created_at > unixepoch() - 86400'),
+      agrohands_sms_daily_limit: config.sms.dailyLimit,
       agrohands_sms_queued: n("SELECT COUNT(*) AS n FROM sms_outbox WHERE status IN ('queued','sending')"),
       agrohands_sms_failed_24h: n("SELECT COUNT(*) AS n FROM sms_outbox WHERE status = 'failed' AND created_at > unixepoch() - 86400"),
       agrohands_payments_pending_1h: n("SELECT COUNT(*) AS n FROM payments WHERE status = 'pending' AND created_at < unixepoch() - 3600"),

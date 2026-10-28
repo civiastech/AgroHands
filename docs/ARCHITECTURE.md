@@ -48,6 +48,18 @@
 - **Privacy (NDPA):** a full NIN is never stored, only an HMAC (keyed with `SESSION_SECRET`) and the last 4 digits. That is why the secret must never change.
 - **Backups:** `VACUUM INTO` produces a consistent copy while the app is serving traffic.
 
+## Measured capacity
+
+`npm run loadtest` (see `scripts/loadtest.js`) against the production image limited to **2 CPUs and 1 GB RAM** (about a Hetzner CX22), with demo data, 50 users clicking with no pauses, October 2026:
+
+| Scenario | Result |
+| --- | --- |
+| Browsing mix (landing, worker and farmer homes, ranked shortlist, lessons, admin) | about 1,480 requests/s; p95 57 ms, p99 72 ms; 0 errors in 44,561 requests |
+| 100 logins, 20 at a time | about 20 logins/s (PBKDF2, 120,000 rounds: slow on purpose to resist PIN guessing) |
+| Pages while those logins run | p50 19 ms, p99 169 ms |
+
+PIN hashing runs on Node's thread pool, so login bursts don't stall other pages. Before that change, the same burst pushed page p99 to 4.6 s. For scale: a pilot of 5,000 people, all active at once, would use a few percent of this capacity.
+
 ## Scaling path
 
 The current design targets one instance. When you outgrow it:

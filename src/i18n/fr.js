@@ -381,4 +381,5 @@ export default {
   'pay.required': "Ce cours doit être payé avant le quiz.",
   'pay.unavailable': "Le paiement n'est pas disponible pour le moment. Réessayez plus tard.",
   'pay.not_in_app': "Les cours payants ne sont pas disponibles dans l'application Android.",
+  'otp.unavailable': "Nous ne pouvons pas envoyer de code pour le moment. Réessayez plus tard ou demandez de l'aide à un agent AgroHands.",
 };

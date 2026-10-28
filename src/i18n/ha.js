@@ -285,4 +285,5 @@ export default {
   'pay.required': "Wannan kwas yana bukatar biya kafin jarrabawa.",
   'pay.unavailable': "Biyan kudi ba ya aiki yanzu. Da fatan za ka sake gwadawa daga baya.",
   'pay.not_in_app': "Kwasa-kwasan da ake biya ba sa cikin manhajar Android.",
+  'otp.unavailable': "Ba za mu iya aika lamba yanzu ba. Da fatan za ka sake gwadawa daga baya ko ka nemi taimakon wakilin AgroHands.",
 };

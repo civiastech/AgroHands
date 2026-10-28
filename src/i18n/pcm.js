@@ -285,4 +285,5 @@ export default {
   'pay.required': "You go pay for this course before the quiz.",
   'pay.unavailable': "Payment no dey work now. Abeg try again later.",
   'pay.not_in_app': "Paid courses no dey inside the Android app.",
+  'otp.unavailable': "We no fit send code now. Abeg try again later or ask AgroHands agent make e help you.",
 };

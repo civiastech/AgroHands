@@ -285,4 +285,5 @@ export default {
   'pay.required': "Ọmụmụ ihe a chọrọ ịkwụ ụgwọ tupu ule.",
   'pay.unavailable': "Ịkwụ ụgwọ adịghị ugbu a. Biko nwaa ọzọ ma emechaa.",
   'pay.not_in_app': "Ọmụmụ ihe a na-akwụ ụgwọ adịghị na ngwa Android.",
+  'otp.unavailable': "Anyị enweghị ike iziga koodu ugbu a. Biko nwaa ọzọ ma emechaa ma ọ bụ rịọ onye nnọchite anya AgroHands maka enyemaka.",
 };

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { html } from '../html.js';
 import { form, field, select, statusPill, fmtDate, waLink, icon, avatar, backLink, sectionHead } from '../views/ui.js';
 import { q, parseJson } from '../db.js';
-import { verifyPin, isLocked, recordPinAttempt } from '../auth.js';
+import { checkPin } from '../auth.js';
 import { clauses, summaryLines } from '../lib/contract.js';
 import { contractParty, signContract, endContract, rate, openDispute, AppError } from '../lib/services.js';
 import { translator } from '../i18n/index.js';
@@ -79,15 +79,14 @@ export default function register(r) {
           <button class="btn danger small">${t('contract.end')}</button>`)}</details>` : ''}`);
   });
 
-  r.post('/c/:id/sign', (ctx) => {
+  r.post('/c/:id/sign', async (ctx) => {
     if (!ctx.need()) return;
     const { c, party } = load(ctx);
     if (!party) throw new AppError('common.forbidden', 403);
     const user = q.get('SELECT * FROM users WHERE id = ?', ctx.user.id);
-    if (isLocked(user)) return ctx.redirect(`/c/${c.id}`, 'auth.locked', 'error');
-    const ok = verifyPin(ctx.body.pin, user.pin_hash);
-    recordPinAttempt(user, ok);
-    if (!ok) return ctx.redirect(`/c/${c.id}`, 'contract.wrong_pin', 'error');
+    const pin = await checkPin(user.id, ctx.body.pin);
+    if (pin === 'locked') return ctx.redirect(`/c/${c.id}`, 'auth.locked', 'error');
+    if (pin !== 'ok') return ctx.redirect(`/c/${c.id}`, 'contract.wrong_pin', 'error');
     const ip = ctx.ip;
     signContract(c.id, ctx.user.id, {
       at: new Date().toISOString(),

@@ -1,5 +1,6 @@
 // PIN hashing, revocable sessions, CSRF tokens, lockout. Built on node:crypto only.
-import { pbkdf2Sync, randomBytes, createHmac, createHash, timingSafeEqual } from 'node:crypto';
+import { pbkdf2, pbkdf2Sync, randomBytes, createHmac, createHash, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { config } from './config.js';
 import { q } from './db.js';
 
@@ -18,6 +19,25 @@ export function verifyPin(pin, stored) {
   const [, iter, salt, hash] = String(stored).split('$');
   if (!salt || !hash) return false;
   const test = pbkdf2Sync(String(pin), salt, Number(iter), 32, 'sha256');
+  const known = Buffer.from(hash, 'hex');
+  return known.length === test.length && timingSafeEqual(known, test);
+}
+
+// Async versions for request handlers. PIN hashing is deliberately slow (~40 ms of CPU); the sync versions
+// block every other request while they run. These run on libuv's thread pool, so a burst of logins uses all
+// cores and pages keep loading meanwhile (measured with scripts/loadtest.js).
+const pbkdf2Async = promisify(pbkdf2);
+
+export async function hashPinAsync(pin) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = (await pbkdf2Async(String(pin), salt, ITER, 32, 'sha256')).toString('hex');
+  return `pbkdf2$${ITER}$${salt}$${hash}`;
+}
+
+export async function verifyPinAsync(pin, stored) {
+  const [, iter, salt, hash] = String(stored).split('$');
+  if (!salt || !hash) return false;
+  const test = await pbkdf2Async(String(pin), salt, Number(iter), 32, 'sha256');
   const known = Buffer.from(hash, 'hex');
   return known.length === test.length && timingSafeEqual(known, test);
 }
@@ -86,16 +106,28 @@ export function normalisePhone(input) {
   return /^0[789][01]\d{8}$/.test(p) ? p : null;
 }
 
-export function isLocked(user) {
-  return user.locked_until && user.locked_until > Date.now() / 1000;
-}
-
-export function recordPinAttempt(user, ok) {
-  if (ok) {
-    q.run('UPDATE users SET failed_pins = 0, locked_until = NULL WHERE id = ?', user.id);
-    return;
+/**
+ * Checks a PIN with lockout: 5 wrong PINs lock the account for 15 minutes. Returns 'ok', 'wrong' or 'locked'.
+ * The attempt is counted *before* the (async, slow) hash check, so firing many guesses in parallel cannot
+ * slip past the limit: the database row, updated synchronously, is the single source of truth.
+ */
+export async function checkPin(userId, pin) {
+  const now = Math.floor(Date.now() / 1000);
+  const row = q.get('SELECT pin_hash, failed_pins, locked_until FROM users WHERE id = ?', userId);
+  if (!row) return 'wrong';
+  if (row.locked_until && row.locked_until > now) return 'locked';
+  if (row.failed_pins >= MAX_FAILED) {
+    // Guesses already in flight used up the allowance.
+    q.run('UPDATE users SET failed_pins = 0, locked_until = ? WHERE id = ?', now + LOCK_MINUTES * 60, userId);
+    return 'locked';
   }
-  const failed = user.failed_pins + 1;
-  const lock = failed >= MAX_FAILED ? Math.floor(Date.now() / 1000) + LOCK_MINUTES * 60 : null;
-  q.run('UPDATE users SET failed_pins = ?, locked_until = ? WHERE id = ?', lock ? 0 : failed, lock, user.id);
+  q.run('UPDATE users SET failed_pins = failed_pins + 1 WHERE id = ?', userId); // reserve this attempt
+  const ok = await verifyPinAsync(pin, row.pin_hash);
+  if (ok) {
+    q.run('UPDATE users SET failed_pins = 0, locked_until = NULL WHERE id = ?', userId);
+    return 'ok';
+  }
+  const after = q.get('SELECT failed_pins FROM users WHERE id = ?', userId).failed_pins;
+  if (after >= MAX_FAILED) q.run('UPDATE users SET failed_pins = 0, locked_until = ? WHERE id = ?', now + LOCK_MINUTES * 60, userId);
+  return 'wrong';
 }

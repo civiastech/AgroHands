@@ -5,7 +5,8 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { q, parseJson } from '../db.js';
 import { secretHash, safeEqual } from '../auth.js';
 import { AppError } from './services.js';
-import { queueSms, sendNow } from './sms.js';
+import { queueSms, sendNow, smsBudgetLeft } from './sms.js';
+import { log } from './log.js';
 import { translator } from '../i18n/index.js';
 import { config } from '../config.js';
 
@@ -21,20 +22,29 @@ const hash = (code) => secretHash('otp', code);
  * still created so the response looks the same, but no SMS goes out and no code can ever match.
  * Returns { token, devCode } — devCode only with the dev "log" SMS provider, for local testing.
  */
-export async function issueOtp({ phone, purpose, payload = {}, lang = 'en', send = true }) {
+export async function issueOtp({ phone, purpose, payload = {}, lang = 'en', send = true, ip = null }) {
   const recent = q.get(
     'SELECT COUNT(*) AS n, MAX(created_at) AS last FROM otp_codes WHERE phone = ? AND purpose = ? AND created_at > unixepoch() - 3600',
     phone, purpose);
   if (recent.n >= OTP_PER_HOUR) throw new AppError('otp.too_many', 429);
   if (recent.last && Date.now() / 1000 - recent.last < OTP_RESEND_SEC) throw new AppError('otp.wait', 429);
+  // SMS pumping guards: one source asking for codes to many numbers, and a hard daily SMS budget.
+  if (ip && q.get('SELECT COUNT(*) AS n FROM otp_codes WHERE ip = ? AND created_at > unixepoch() - 3600', ip).n >= config.sms.otpPerIpHour) {
+    log.warn('one-time code limit per IP reached', { ip });
+    throw new AppError('otp.too_many', 429);
+  }
+  if (send && smsBudgetLeft() <= 0) {
+    log.error('SMS daily limit reached — sign-up and PIN reset codes are paused', { limit: config.sms.dailyLimit });
+    throw new AppError('otp.unavailable', 503);
+  }
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
   const token = randomBytes(24).toString('base64url');
   q.tx(() => {
     // Only the newest code for a number and purpose is valid.
     q.run('UPDATE otp_codes SET consumed_at = unixepoch() WHERE phone = ? AND purpose = ? AND consumed_at IS NULL', phone, purpose);
-    q.run('INSERT INTO otp_codes (token, phone, purpose, code_hash, payload, sent, expires_at) VALUES (?, ?, ?, ?, ?, ?, unixepoch() + ?)',
-      token, phone, purpose, send ? hash(code) : 'none', JSON.stringify(payload), send ? 1 : 0, OTP_TTL_SEC);
+    q.run('INSERT INTO otp_codes (token, phone, purpose, code_hash, payload, sent, ip, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch() + ?)',
+      token, phone, purpose, send ? hash(code) : 'none', JSON.stringify(payload), send ? 1 : 0, ip, OTP_TTL_SEC);
   });
   if (send) {
     const t = translator(lang);

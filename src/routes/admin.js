@@ -5,7 +5,8 @@ import { form, field, select, fmtDate, icon, sectionHead, emptyState, stat, avat
 import { q, audit, parseJson } from '../db.js';
 import { AppError, resolveDispute } from '../lib/services.js';
 import { revokeSessions, normalisePhone } from '../auth.js';
-import { kick } from '../lib/sms.js';
+import { kick, smsLast24h } from '../lib/sms.js';
+import { config } from '../config.js';
 
 const PAGE = 50;
 const ROLES = ['worker', 'farmer', 'agent', 'admin'];
@@ -102,6 +103,11 @@ export default function register(r) {
       ['send', 'SMS failed in the last 24 hours', n("SELECT COUNT(*) AS n FROM sms_outbox WHERE status = 'failed' AND created_at > unixepoch() - 86400"), '/admin/sms?status=failed'],
       ['wallet', 'Payments needing a look', n("SELECT COUNT(*) AS n FROM payments WHERE status = 'pending' AND created_at < unixepoch() - 3600"), '/admin/payments?status=pending'],
     ].filter(([, , count]) => count > 0);
+    const smsUsed = smsLast24h();
+    // Near the daily SMS budget: real growth (raise SMS_DAILY_LIMIT) or someone running up the bill.
+    if (smsUsed >= config.sms.dailyLimit * 0.8) {
+      attention.unshift(['alert', `SMS use in the last 24 h: ${smsUsed} of the ${config.sms.dailyLimit} daily limit`, smsUsed, '/admin/sms']);
+    }
     page(ctx, 'Admin', html`
       <div class="page-head"><span class="tile lg">${icon('grid', { cls: 'i-lg' })}</span>
         <div class="grow"><h1>Admin</h1><p>Platform health, queues and exports.</p></div></div>

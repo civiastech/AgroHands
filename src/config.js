@@ -89,6 +89,12 @@ export const config = {
     apiKey: env.AT_API_KEY || '',
     // Registered alphanumeric sender id (e.g. AgroHands). Empty = the provider's default shared sender.
     senderId: env.SMS_SENDER_ID || '',
+    // Cost guards against SMS pumping. Daily = all messages in the last 24 hours; above it nothing is sent
+    // and admins are alerted. Raise it as real traffic grows (each SMS costs roughly ₦3–₦5).
+    dailyLimit: int('SMS_DAILY_LIMIT', 1000, { min: 1 }),
+    // One-time codes one IP address may request per hour, across all phone numbers. Not lower: Nigerian
+    // mobile networks put many subscribers behind one shared IP (carrier-grade NAT).
+    otpPerIpHour: int('OTP_PER_IP_HOUR', 30, { min: 1 }),
   },
   // Payments (Paystack): paid courses on the website. Empty key = paid courses stay free (pilot mode).
   // Use an sk_test_ key until go-live. The Play Store app never shows checkout (Google Play billing rules).

@@ -1,7 +1,7 @@
 import { html, raw } from '../html.js';
 import { form, field, checkbox, icon, homeFor } from '../views/ui.js';
 import { LOCALES } from '../i18n/index.js';
-import { createSession, destroySession, revokeSessions, sessionMaxAge, hashPin, verifyPin, validPin, normalisePhone, isLocked, recordPinAttempt } from '../auth.js';
+import { createSession, destroySession, revokeSessions, sessionMaxAge, hashPinAsync, checkPin, validPin, normalisePhone } from '../auth.js';
 import { q, audit } from '../db.js';
 import { createUser, AppError, deleteAccount, setPin } from '../lib/services.js';
 import { issueOtp, pendingOtp, consumeOtp, maskPhone, OTP_TTL_SEC } from '../lib/otp.js';
@@ -134,10 +134,10 @@ export default function register(r) {
     if (q.get('SELECT id FROM users WHERE phone = ?', phone)) return ctx.redirect(back, 'auth.phone_taken', 'error');
     // The account is created only once the SMS code proves this person holds the phone. Until then the
     // details wait with the pending code (the PIN already hashed).
-    const payload = { name: String(b.name).trim().slice(0, 80), role, pinHash: hashPin(b.pin), lang: ctx.lang };
+    const payload = { name: String(b.name).trim().slice(0, 80), role, pinHash: await hashPinAsync(b.pin), lang: ctx.lang };
     let sent;
     try {
-      sent = await issueOtp({ phone, purpose: 'register', payload, lang: ctx.lang });
+      sent = await issueOtp({ ip: ctx.ip, phone, purpose: 'register', payload, lang: ctx.lang });
     } catch (e) {
       if (e instanceof AppError) return ctx.redirect(back, e.key, 'error');
       throw e;
@@ -215,7 +215,7 @@ export default function register(r) {
     const known = old.purpose === 'register' || !!q.get("SELECT id FROM users WHERE id = ? AND status = 'active'", old.payload.userId);
     let sent;
     try {
-      sent = await issueOtp({ phone: old.phone, purpose: old.purpose, payload: old.payload, lang: ctx.lang, send: known });
+      sent = await issueOtp({ ip: ctx.ip, phone: old.phone, purpose: old.purpose, payload: old.payload, lang: ctx.lang, send: known });
     } catch (e) {
       if (e instanceof AppError) return ctx.redirect(verifyUrl(old.token), e.key, 'error');
       throw e;
@@ -245,7 +245,7 @@ export default function register(r) {
     // Same answer whether or not the number has an account; a code is only sent when it does.
     let sent;
     try {
-      sent = await issueOtp({ phone, purpose: 'reset', payload: { userId: user?.id ?? null }, lang: ctx.lang, send: !!user });
+      sent = await issueOtp({ ip: ctx.ip, phone, purpose: 'reset', payload: { userId: user?.id ?? null }, lang: ctx.lang, send: !!user });
     } catch (e) {
       if (e instanceof AppError) return ctx.redirect('/forgot', e.key, 'error');
       throw e;
@@ -273,14 +273,13 @@ export default function register(r) {
     </div>`);
   });
 
-  r.post('/login', (ctx) => {
+  r.post('/login', async (ctx) => {
     const phone = normalisePhone(ctx.body.phone);
     const user = phone && q.get("SELECT * FROM users WHERE phone = ? AND status = 'active'", phone);
     if (!user) return ctx.redirect('/login', 'auth.bad_login', 'error');
-    if (isLocked(user)) return ctx.redirect('/login', 'auth.locked', 'error');
-    const ok = verifyPin(ctx.body.pin, user.pin_hash);
-    recordPinAttempt(user, ok);
-    if (!ok) return ctx.redirect('/login', 'auth.bad_login', 'error');
+    const pin = await checkPin(user.id, ctx.body.pin);
+    if (pin === 'locked') return ctx.redirect('/login', 'auth.locked', 'error');
+    if (pin !== 'ok') return ctx.redirect('/login', 'auth.bad_login', 'error');
     audit(user.id, 'user.login', `user:${user.id}`);
     startSession(ctx, user.id);
     if (!ctx.cookies.ah_lang && user.lang) ctx.res.cookie('ah_lang', user.lang, { maxAge: 86400 * 365, httpOnly: false });
@@ -314,14 +313,13 @@ export default function register(r) {
     </div>`);
   });
 
-  r.post('/me/pin', (ctx) => {
+  r.post('/me/pin', async (ctx) => {
     if (!ctx.need()) return;
     const b = ctx.body;
     const user = q.get('SELECT * FROM users WHERE id = ?', ctx.user.id);
-    if (isLocked(user)) return ctx.redirect('/me/pin', 'auth.locked', 'error');
-    const ok = verifyPin(b.current, user.pin_hash);
-    recordPinAttempt(user, ok);
-    if (!ok) return ctx.redirect('/me/pin', 'me.wrong_pin', 'error');
+    const pin = await checkPin(user.id, b.current);
+    if (pin === 'locked') return ctx.redirect('/me/pin', 'auth.locked', 'error');
+    if (pin !== 'ok') return ctx.redirect('/me/pin', 'me.wrong_pin', 'error');
     if (!validPin(b.pin)) return ctx.redirect('/me/pin', 'auth.bad_pin', 'error');
     if (b.pin !== b.pin2) return ctx.redirect('/me/pin', 'auth.pin_mismatch', 'error');
     setPin(user.id, b.pin, { keepSessionId: ctx.user.session_id });
@@ -410,8 +408,9 @@ export default function register(r) {
     <h1>Terms of use (summary)</h1>
     <div class="card">
       <p><b>Workers</b> never pay AgroHands to find work. Provide true information. Turn up for jobs you accept, or give notice.</p>
-      <p><b>Farm owners</b> pay the published fees, pay wages in full and on time, provide safe conditions and PPE, and do not hire under-18s for farm work.</p>
-      <p><b>Non-circumvention.</b> Farm owners who hire a worker they met on AgroHands outside the platform within 12 months pay the standard placement fee.</p>
+      <p><b>Farm owners</b> pay wages in full and on time, provide safe conditions and PPE, and do not hire under-18s for farm work.</p>
+      <p><b>Fees.</b> Finding and hiring workers on AgroHands is currently free for farm owners. Some training courses are paid; the price is shown before you pay, and payment is taken on our website through Paystack. If we introduce fees for farm owners (for example a placement fee), we will publish them and tell you at least 30 days before they apply, and they will never apply to hires made before that date.</p>
+      <p><b>Non-circumvention.</b> Once a placement fee is published, farm owners who hire a worker they met on AgroHands outside the platform within 12 months of meeting them pay that fee.</p>
       <p><b>Disputes</b> are first mediated by AgroHands within 48 hours. AgroHands is an employment agency and not the employer.</p>
       <p><b>Conduct.</b> Fraud, harassment or abuse leads to suspension.</p>
       <p class="muted small">Draft for legal review before launch.</p>
