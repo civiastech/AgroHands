@@ -33,7 +33,7 @@ sudo mkdir -p /opt/agrohands && sudo chown $USER /opt/agrohands
 git clone <your-repo> /opt/agrohands && cd /opt/agrohands
 cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # or: openssl rand -hex 32
-nano .env    # set DOMAIN, BASE_URL=https://DOMAIN, SESSION_SECRET, ADMIN_PHONES, USSD_KEY
+nano .env    # set DOMAIN, BASE_URL=https://DOMAIN, SESSION_SECRET, ADMIN_PHONES, USSD_KEY, AT_USERNAME, AT_API_KEY
 ./deploy/deploy.sh
 ```
 
@@ -46,7 +46,23 @@ nano .env    # set DOMAIN, BASE_URL=https://DOMAIN, SESSION_SECRET, ADMIN_PHONES
 5. Starts or updates `app`, `caddy` and `backup`.
 6. Waits until `/readyz` reports healthy, and prints the logs if it doesn't.
 
-Then open `https://your-domain`, register with a phone listed in `ADMIN_PHONES`, and you're admin.
+Then open `https://your-domain`, register with a phone listed in `ADMIN_PHONES` (you will get an SMS code), and you're admin.
+
+### SMS (Africa's Talking)
+
+Sign-up needs SMS: an account is only created after the person types the code texted to their phone. The app will not start in production without a working SMS provider.
+
+1. Create an account at africastalking.com and, in the **sandbox** app, copy the API key. Set `AT_USERNAME=sandbox` and that key, deploy, and register: the code appears in the sandbox simulator.
+2. Create the **live** app, top up the wallet, and request a **sender id** (e.g. `AgroHands`). Nigerian networks filter unregistered senders for numbers on Do-Not-Disturb, so this matters.
+3. Set `AT_USERNAME` to the live username, `AT_API_KEY` to the live key and `SMS_SENDER_ID`, then redeploy.
+
+Every message goes through the `sms_outbox` table first and is retried with backoff (30 s, 1 min, 2 min …, 5 tries). Permanent rejections (invalid number, Do-Not-Disturb) are not retried. Check delivery with:
+
+```bash
+$C exec app node -e "import('./src/db.js').then(({openDb,q})=>{openDb(process.env.DB_PATH);console.table(q.all('SELECT status, COUNT(*) n FROM sms_outbox GROUP BY status'))})"
+```
+
+`/metrics` also counts `sms_sent`, `sms_retry` and `sms_failed`.
 
 ### What's running
 

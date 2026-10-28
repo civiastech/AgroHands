@@ -7,6 +7,7 @@ import { normalisePhone, ninHash } from '../auth.js';
 import { validNin } from '../lib/verify.js';
 import { createUser, AppError } from '../lib/services.js';
 import { refreshTier } from '../lib/tiers.js';
+import { notify } from '../lib/notify.js';
 import { SKILL_KEYS, skillIcon } from '../data/skills.js';
 import { STATE_NAMES } from '../data/states.js';
 
@@ -161,6 +162,8 @@ export default function register(r) {
     q.run('UPDATE workers SET state = ?, lga = ?, town = ?, skills = ?, primary_skill = ? WHERE user_id = ?',
       STATE_NAMES.includes(b.state) ? b.state : null, String(b.lga || '').slice(0, 60), String(b.town || '').slice(0, 60),
       JSON.stringify([skill]), skill, id);
+    // Tells the worker their account exists (and how to reset the PIN), so a wrong number is noticed at once.
+    notify(id, 'welcome_agent');
     ctx.render(t('agent.register_worker'), html`
       <p class="flash">✔ ${b.name} — ${phone}</p>
       <div class="card"><p>${t('agent.temp_pin')}:</p><p class="score" style="font-size:36px;letter-spacing:6px">${pin}</p>

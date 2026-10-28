@@ -75,6 +75,7 @@ ${ICON_SPRITE}
       <div class="menu-head"><b>${user.name}</b><span class="small muted">${t('role.' + user.role)} · ${user.phone}</span></div>
       <a role="menuitem" href="${home}">${icon('home')}${t('nav.dashboard')}</a>
       ${profileHref ? html`<a role="menuitem" href="${profileHref}">${icon('edit')}${t(user.role === 'worker' ? 'worker.profile' : 'farmer.farm')}</a>` : ''}
+      <a role="menuitem" href="/me/pin">${icon('lock')}${t('me.pin_title')}</a>
       <a role="menuitem" href="/me/data">${icon('download')}${t('me.data')}</a>
       <a role="menuitem" href="/me/delete" class="danger">${icon('trash')}${t('me.delete')}</a>
       <form method="post" action="/logout">${csrfField(ctx)}<button role="menuitem">${icon('logout')}${t('nav.logout')}</button></form>

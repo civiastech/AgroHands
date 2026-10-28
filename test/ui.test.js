@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 
 process.env.SESSION_SECRET = 'test-secret';
 process.env.LOG_LEVEL = 'error';
+process.env.SMS_PROVIDER = 'memory';
 
 const { openDb } = await import('../src/db.js');
 const { createHandler } = await import('../src/app.js');

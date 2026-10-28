@@ -9,10 +9,13 @@ process.env.NIN_PROVIDER = 'mock';
 process.env.SESSION_SECRET = 'test-secret';
 process.env.ADMIN_PHONES = '08000000009';
 process.env.LOG_LEVEL = 'error';
+process.env.SMS_PROVIDER = 'memory';
 
 const { openDb, q } = await import('../src/db.js');
 const { createHandler } = await import('../src/app.js');
 const { createUser } = await import('../src/lib/services.js');
+const { sentSms } = await import('../src/lib/sms.js');
+const { normalisePhone } = await import('../src/auth.js');
 
 let server, base, handler;
 before(async () => {
@@ -54,10 +57,21 @@ class Client {
 
 const flash = (c) => decodeURIComponent(c.jar.ah_f || '');
 
+/** The newest one-time code texted to a phone (the memory SMS provider records every message). */
+const lastCode = (phone) => /\b(\d{6})\b/.exec(sentSms.filter((m) => m.to === phone).at(-1)?.body || '')?.[1];
+const tokenOf = (location) => new URL(location, 'http://x').searchParams.get('t');
+
+/** Sign-up is two steps: details, then the SMS code that proves the phone is theirs. */
+async function signUp(c, form) {
+  const r = await c.post('/register', form);
+  assert.match(r.location || '', /^\/verify\?t=/, `register ${form.phone}: ${flash(c)}`);
+  return c.post('/verify', { t: tokenOf(r.location), code: lastCode(normalisePhone(form.phone)) });
+}
+
 test('full hiring journey', async () => {
   // Farmer
   const farmer = new Client();
-  let r = await farmer.post('/register', { role: 'farmer', name: 'Joshua Oladeji', phone: '08030000001', pin: '2468', pin2: '2468', consent: '1' });
+  let r = await signUp(farmer, { role: 'farmer', name: 'Joshua Oladeji', phone: '08030000001', pin: '2468', pin2: '2468', consent: '1' });
   assert.equal(r.location, '/f/farm');
   r = await farmer.post('/f/farm', { name: 'Test Pineapple Farm', state: 'Oyo', lga: 'Ogbomoso North', address: 'Km 4', lat: '8.1339', lng: '4.2401', size_ha: '20', crops: 'Pineapple' });
   assert.equal(r.location, '/f');
@@ -67,7 +81,7 @@ test('full hiring journey', async () => {
   await worker.get('/lang/yo');
   r = await worker.get('/register?role=worker');
   assert.match(r.text, /Forúkọsílẹ̀/);
-  r = await worker.post('/register', { role: 'worker', name: 'Adebayo Ogunleye', phone: '0810 000 0001', pin: '1357', pin2: '1357', consent: '1' });
+  r = await signUp(worker, { role: 'worker', name: 'Adebayo Ogunleye', phone: '0810 000 0001', pin: '1357', pin2: '1357', consent: '1' });
   assert.equal(r.location, '/w/profile');
   r = await worker.post('/w/profile', {
     gender: 'male', dob: '1994-05-10', state: 'Oyo', lga: 'Ogbomoso North', town: 'Ogbomoso', lat: '8.14', lng: '4.25',
@@ -86,7 +100,7 @@ test('full hiring journey', async () => {
 
   // Same NIN cannot be reused by another account
   const dup = new Client();
-  await dup.post('/register', { role: 'worker', name: 'Fake Person', phone: '08100000099', pin: '1111', pin2: '1111', consent: '1' });
+  await signUp(dup, { role: 'worker', name: 'Fake Person', phone: '08100000099', pin: '1111', pin2: '1111', consent: '1' });
   r = await dup.post('/w/verify', { nin: '12345678901', consent: '1' });
   assert.equal(r.location, '/w/verify');
 
@@ -113,10 +127,13 @@ test('full hiring journey', async () => {
   const jobId = Number(jobPath.split('/').pop());
   r = await farmer.post(`${jobPath}/offer/${w.user_id}`, {});
   assert.equal(r.location, jobPath);
+  const farmerId = q.get("SELECT id FROM users WHERE phone = '08030000001'").id;
+  const texts = (userId, kind) => q.all('SELECT body FROM sms_outbox WHERE user_id = ? AND kind = ?', userId, kind).map((x) => x.body);
+  assert.match(texts(w.user_id, 'offer')[0], /^Ise lati AgroHands: Pineapple harvest ni Test Pineapple Farm, N4,500\/ojo/, 'offer SMS in the worker\'s language');
 
   // Another farmer cannot see this job
   const nosy = new Client();
-  await nosy.post('/register', { role: 'farmer', name: 'Nosy Farmer', phone: '08030000002', pin: '1111', pin2: '1111', consent: '1' });
+  await signUp(nosy, { role: 'farmer', name: 'Nosy Farmer', phone: '08030000002', pin: '1111', pin2: '1111', consent: '1' });
   assert.equal((await nosy.get(jobPath)).status, 404);
 
   // Worker accepts → contract (pending) → wrong PIN → both sign → active
@@ -125,16 +142,20 @@ test('full hiring journey', async () => {
   r = await worker.post(`/w/offers/${matchId}/accept`, {});
   const cPath = r.location;
   assert.match(cPath, /^\/c\/\d+$/);
+  assert.match(texts(farmerId, 'offer_accepted')[0], new RegExp(`Adebayo accepted .*${cPath}$`), 'farmer is told to sign');
   r = await worker.get(cPath);
   assert.match(r.text, /Sick leave/);
   r = await worker.post(`${cPath}/sign`, { pin: '0000' });
   assert.match(flash(worker), /PIN/);
   await worker.post(`${cPath}/sign`, { pin: '1357' });
+  assert.equal(texts(farmerId, 'contract_sign').length, 1, 'farmer asked to countersign');
   r = await farmer.get(cPath);
   assert.doesNotMatch(r.text, /08100000001/, 'contact hidden until both sign');
   await farmer.post(`${cPath}/sign`, { pin: '2468' });
   const c = q.get('SELECT * FROM contracts WHERE id = ?', Number(cPath.split('/').pop()));
   assert.equal(c.status, 'active');
+  assert.equal(JSON.parse(c.worker_sig_meta).phoneVerifiedAt > 0, true, 'signature evidence records the verified phone');
+  assert.equal(texts(w.user_id, 'contract_active').length + texts(farmerId, 'contract_active').length, 2, 'both sides told it is active');
   assert.equal(q.get('SELECT status FROM jobs WHERE id = ?', jobId).status, 'filled');
   r = await farmer.get(cPath);
   assert.match(r.text, /08100000001/, 'contact visible once active');

@@ -1,5 +1,5 @@
-// PIN hashing, signed session cookies, CSRF tokens, lockout. Built on node:crypto only.
-import { pbkdf2Sync, randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
+// PIN hashing, revocable sessions, CSRF tokens, lockout. Built on node:crypto only.
+import { pbkdf2Sync, randomBytes, createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import { config } from './config.js';
 import { q } from './db.js';
 
@@ -24,7 +24,6 @@ export function verifyPin(pin, stored) {
 
 export const validPin = (pin) => /^\d{4,6}$/.test(String(pin || ''));
 
-const sign = (value) => createHmac('sha256', config.secret).update(value).digest('base64url');
 
 function safeEqual(a, b) {
   const x = Buffer.from(String(a));
@@ -32,24 +31,47 @@ function safeEqual(a, b) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-export function makeSessionCookie(userId) {
-  const exp = Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400;
-  const value = `${userId}.${exp}`;
-  return `${value}.${sign(value)}`;
+// Sessions live in the database so they can be revoked: logout, PIN change/reset, suspension and
+// account deletion end them immediately. The cookie holds a random token; only its SHA-256 is stored.
+const tokenId = (token) => createHash('sha256').update(String(token)).digest('hex');
+const now = () => Math.floor(Date.now() / 1000);
+const TOUCH_EVERY = 600; // write last_seen_at at most every 10 minutes
+
+/** Starts a session and returns the cookie value. */
+export function createSession(userId, { ip, userAgent } = {}) {
+  const token = randomBytes(32).toString('base64url');
+  q.run('INSERT INTO sessions (id, user_id, expires_at, ip, user_agent) VALUES (?, ?, ?, ?, ?)',
+    tokenId(token), userId, now() + SESSION_DAYS * 86400, ip || null, String(userAgent || '').slice(0, 200) || null);
+  return token;
 }
 
-export function readSession(cookieValue) {
-  if (!cookieValue) return null;
-  const parts = cookieValue.split('.');
-  if (parts.length !== 3) return null;
-  const [id, exp, sig] = parts;
-  if (!safeEqual(sig, sign(`${id}.${exp}`))) return null;
-  if (Number(exp) < Date.now() / 1000) return null;
-  const user = q.get("SELECT * FROM users WHERE id = ? AND status = 'active'", Number(id));
-  return user || null;
+export function readSession(token) {
+  if (!token || !/^[\w-]{43}$/.test(token)) return null;
+  const row = q.get(
+    `SELECT u.*, s.id AS session_id, s.last_seen_at AS session_seen FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.id = ? AND s.expires_at > unixepoch() AND u.status = 'active'`, tokenId(token));
+  if (!row) return null;
+  if (now() - row.session_seen > TOUCH_EVERY) q.run('UPDATE sessions SET last_seen_at = unixepoch() WHERE id = ?', row.session_id);
+  delete row.session_seen;
+  return row;
 }
+
+export function destroySession(token) {
+  if (token) q.run('DELETE FROM sessions WHERE id = ?', tokenId(token));
+}
+
+/** Signs the user out everywhere, optionally keeping one session (the device making the change). */
+export function revokeSessions(userId, { exceptId } = {}) {
+  q.run('DELETE FROM sessions WHERE user_id = ? AND id IS NOT ?', userId, exceptId ?? null);
+}
+
+export const pruneSessions = () => q.run('DELETE FROM sessions WHERE expires_at <= unixepoch()').changes;
 
 export const sessionMaxAge = SESSION_DAYS * 86400;
+
+/** Keyed hash for short secrets (one-time codes) so the database never holds them in clear. */
+export const secretHash = (purpose, value) => createHmac('sha256', `${purpose}:${config.secret}`).update(String(value)).digest('hex');
+export { safeEqual };
 
 export const newCsrfToken = () => randomBytes(18).toString('base64url');
 

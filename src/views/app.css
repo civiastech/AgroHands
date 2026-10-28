@@ -410,6 +410,9 @@ main.full > .toast { margin: 12px 16px; }
 .auth-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-2); padding: 24px 20px; }
 .auth-card .brand-mark { width: 52px; height: 52px; border-radius: 16px; margin-bottom: 14px; }
 .auth-card h1 { margin: 0 0 4px; }
+.auth-card form + form { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--line); }
+/* One-time code: big, spaced digits that are easy to read back from an SMS. */
+.otp-input { font-size: 28px; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
 .auth-card .lead { color: var(--muted); margin-bottom: 8px; }
 .auth-alt { text-align: center; margin-top: 18px; color: var(--muted); }
 .auth-alt a { font-weight: 650; }

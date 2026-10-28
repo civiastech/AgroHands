@@ -68,7 +68,7 @@ export function buildRouter() {
 
 const CSRF_EXEMPT = new Set(['/ussd']);
 // Routes that check a PIN, create accounts or trigger paid NIN look-ups get the strict limit.
-const AUTH_ROUTES = new Set(['/login', '/register', '/a/register', '/w/verify', '/c/:id/sign', '/me/delete', '/ussd']);
+const AUTH_ROUTES = new Set(['/login', '/register', '/verify', '/verify/resend', '/forgot', '/me/pin', '/a/register', '/w/verify', '/c/:id/sign', '/me/delete', '/ussd']);
 // Ops probes are hit every few seconds; keep them out of access logs and latency metrics noise.
 const QUIET_ROUTES = new Set(['/healthz', '/readyz']);
 

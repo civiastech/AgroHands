@@ -1,7 +1,8 @@
 import { html } from '../html.js';
 import { form, field, select, fmtDate } from '../views/ui.js';
 import { q, audit } from '../db.js';
-import { AppError } from '../lib/services.js';
+import { AppError, resolveDispute } from '../lib/services.js';
+import { revokeSessions } from '../auth.js';
 
 export default function register(r) {
   r.get('/admin', (ctx) => {
@@ -54,10 +55,7 @@ export default function register(r) {
 
   r.post('/admin/disputes/:id', (ctx) => {
     if (!ctx.need('admin')) return;
-    const status = ['resolved', 'rejected'].includes(ctx.body.status) ? ctx.body.status : 'resolved';
-    q.run('UPDATE disputes SET status = ?, resolution = ?, resolved_by = ?, resolved_at = unixepoch() WHERE id = ?',
-      status, String(ctx.body.resolution || '').slice(0, 1000), ctx.user.id, Number(ctx.params.id));
-    audit(ctx.user.id, 'dispute.' + status, `dispute:${ctx.params.id}`);
+    resolveDispute(Number(ctx.params.id), ctx.user.id, ctx.body.status, ctx.body.resolution);
     ctx.redirect('/admin', 'common.saved');
   });
 
@@ -70,6 +68,7 @@ export default function register(r) {
     if (u.id === ctx.user.id) throw new AppError('common.forbidden', 403);
     if (!['agent', 'admin', 'worker', 'farmer'].includes(role) || !['active', 'suspended'].includes(status)) throw new AppError('common.error');
     q.run('UPDATE users SET role = ?, status = ? WHERE id = ?', role, status, u.id);
+    if (status === 'suspended' || role !== u.role) revokeSessions(u.id); // takes effect now, on every device
     if (role === 'worker') q.run('INSERT OR IGNORE INTO workers (user_id) VALUES (?)', u.id);
     audit(ctx.user.id, 'admin.user_update', `user:${u.id}`, { role, status });
     ctx.redirect('/admin', 'common.saved');

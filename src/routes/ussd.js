@@ -61,7 +61,7 @@ export function ussdReply({ phoneNumber, text = '' }) {
     if (!validPin(pin)) return `END ${t('auth.bad_pin')}`;
     if (pin2 === undefined) return `CON ${s.pin2}`;
     if (pin !== pin2) return `END ${t('auth.pin_mismatch')}`;
-    const id = createUser({ phone, pin, role: 'worker', name: name.slice(0, 80), lang, consents: ['terms_ussd'] });
+    const id = createUser({ phone, pin, role: 'worker', name: name.slice(0, 80), lang, consents: ['terms_ussd'], phoneVerified: true }); // the network supplies phoneNumber
     q.run('UPDATE workers SET state = ?, skills = ?, primary_skill = ? WHERE user_id = ?', findState(state).name, JSON.stringify([skill]), skill, id);
     return `END ${s.done}`;
   }

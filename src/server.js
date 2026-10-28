@@ -5,6 +5,9 @@ import { openDb, closeDb, migrate, schemaVersion } from './db.js';
 import { createHandler } from './app.js';
 import { setDraining } from './routes/ops.js';
 import { log } from './lib/log.js';
+import { startSmsWorker, stopSmsWorker } from './lib/sms.js';
+import { pruneSessions } from './auth.js';
+import { pruneOtps } from './lib/otp.js';
 
 const problems = validateConfig();
 if (problems.length) {
@@ -19,6 +22,16 @@ const applied = migrate();
 if (applied.length) log.info('migrations applied', { applied });
 
 const handler = createHandler();
+startSmsWorker();
+// Hourly: drop expired sessions and day-old one-time codes.
+const housekeeping = setInterval(() => {
+  try {
+    const sessions = pruneSessions();
+    const codes = pruneOtps();
+    if (sessions || codes) log.info('housekeeping', { sessions, codes });
+  } catch (err) { log.error('housekeeping failed', { err }); }
+}, 3_600_000);
+housekeeping.unref();
 const server = createServer(handler);
 // Slow-client protection (slowloris) and sane keep-alive behind a reverse proxy.
 server.headersTimeout = 20_000;
@@ -29,7 +42,7 @@ server.maxRequestsPerSocket = 1000;
 server.listen(config.port, config.host, () => {
   log.info('AgroHands started', {
     url: config.baseUrl, port: config.port, version: config.version, build: config.buildId,
-    schema: schemaVersion(), nin: config.ninProvider, env: config.production ? 'production' : 'development', node: process.version,
+    schema: schemaVersion(), nin: config.ninProvider, sms: config.sms.provider, env: config.production ? 'production' : 'development', node: process.version,
   });
 });
 
@@ -46,6 +59,8 @@ function shutdown(signal) {
   force.unref();
   server.close((err) => {
     handler.stop();
+    stopSmsWorker();
+    clearInterval(housekeeping);
     closeDb();
     log.info('stopped cleanly');
     process.exit(err ? 1 : 0);

@@ -94,6 +94,9 @@ export default function register(r) {
       ip,
       ua: createHash('sha256').update(String(ctx.req.headers['user-agent'] || '')).digest('hex').slice(0, 16),
       termsHash: createHash('sha256').update(c.terms).digest('hex'),
+      // Evidence that the signer controls the phone on the contract (SMS code or USSD), not just knows a PIN.
+      phone: user.phone,
+      phoneVerifiedAt: user.phone_verified_at || null,
     });
     ctx.redirect(`/c/${c.id}`);
   });

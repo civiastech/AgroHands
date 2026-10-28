@@ -18,15 +18,17 @@ Farm owners find NIN-verified, trained, rated farm workers. They get a contract 
 | Contracts | Covers every Labour Act s.7 particular; summary in the worker's language; PIN e-signature with time, IP and terms-hash evidence; print or save as PDF. The worker's phone stays hidden until both sides sign; after that a WhatsApp link appears. |
 | After the job | End with a reason, two-way ratings, disputes. Reliability feeds the next match. |
 | Training academy | 5 courses: safety, rights, agrochemicals, GAP, and fair employment for farmers. Quizzes with a 75% pass mark. Certificates anyone can verify at `/cert/CODE`. |
-| Field agents | Assisted sign-up with a temporary PIN; NIN slip confirmation; guarantor calls; address checks; skill assessments; farm verification. |
+| Sign-up and sign-in | Phone ownership is proved with a 6-digit SMS code before an account exists. Forgot PIN resets by SMS code. Sessions are stored on the server, so logout, a PIN change, a reset or a suspension ends them at once (with "sign out other devices"). |
+| SMS alerts | Workers are texted job offers; farmers are texted when a worker accepts or declines; both sides are texted to sign and when the contract is active; dispute answers. In the recipient's language, one GSM-7 SMS each, through an outbox with retries (Africa's Talking). |
+| Field agents | Assisted sign-up with a temporary PIN (the worker gets a welcome SMS); NIN slip confirmation; guarantor calls; address checks; skill assessments; farm verification. |
 | Admin | KPIs, dispute resolution, roles and suspensions, full audit log. |
 | USSD | `POST /ussd` in Africa's Talking format: register, see and accept offers, check status, change language. |
 | Data protection (NDPA) | Consent records; the full NIN is never stored (keyed hash + last 4 digits only); download my data; delete my account (contract records kept). |
-| Security | PBKDF2 PINs; signed sessions; CSRF tokens; lockout after 5 wrong PINs; per-IP rate limits; HSTS and strict security headers; all output escaped; proxy-aware IP capture so e-signature evidence can't be spoofed. |
+| Security | PBKDF2 PINs; revocable server-side sessions (only token hashes stored); SMS codes hashed, single-use, 5 guesses, 10 minutes, 5 per number per hour; CSRF tokens; lockout after 5 wrong PINs; per-IP rate limits; HSTS and strict security headers; all output escaped; proxy-aware IP capture so e-signature evidence can't be spoofed. |
 | Operations | Versioned DB migrations; structured JSON logs with request IDs; `/healthz`, `/readyz`, `/version`, Prometheus `/metrics`; graceful shutdown; automated backups; fail-fast config validation. |
 | Offline & Android | Installable PWA and a Google Play app (Trusted Web Activity). Training pages work offline. |
 
-**Not in this build:** Phase 2 payroll (money movement through Paystack, Flutterwave or Moniepoint), paid course checkout, SMS alerts, and recorded audio lessons. The code is structured so each can be added without rework.
+**Not in this build:** Phase 2 payroll (money movement through Paystack, Flutterwave or Moniepoint), paid course checkout, and recorded audio lessons. The code is structured so each can be added without rework.
 
 ## Run it locally
 
@@ -91,6 +93,7 @@ Every setting is documented in [.env.example](.env.example). In production the a
 | `TRUST_PROXY` | `true` behind Caddy/nginx (the Docker default). Controls whether `X-Forwarded-For` is believed. |
 | `NIN_PROVIDER` | `manual` (free: an agent checks the NIN slip), `dojah` (paid API), `mock` (tests only). |
 | `USSD_KEY` | Secret Africa's Talking sends as `?key=`. In production `/ussd` stays off until it is set. |
+| `SMS_PROVIDER`, `AT_USERNAME`, `AT_API_KEY`, `SMS_SENDER_ID` | Outbound SMS. `africastalking` in production (required: sign-up needs it); `log` in dev prints messages and shows codes on screen. |
 | `METRICS_TOKEN` | Enables `GET /metrics` (Bearer token). Caddy blocks `/metrics` from the internet anyway. |
 | `LOG_LEVEL`, `LOG_FORMAT` | `info`/`json` in production, `debug`/`pretty` in dev. |
 | `RATE_LIMIT_*` | Per-IP limits for auth actions and form posts. |
@@ -102,6 +105,7 @@ Every setting is documented in [.env.example](.env.example). In production the a
 | Hosting | ₦0 (Oracle free VM) | Now |
 | NIN checks | ₦0 with agent checks; about ₦60 per automated API check | When volume justifies it |
 | USSD shortcode | Africa's Talking: free sandbox; dedicated live code costs extra | Go-live |
+| SMS | Africa's Talking: roughly ₦3–₦5 per SMS in Nigeria; a sender id is registered once | Go-live (sign-up needs it) |
 | Domain | about ₦3,000–₦15,000 a year | Optional |
 | Recruiter's licence + CAC | Per the blueprint | Before charging fees |
 

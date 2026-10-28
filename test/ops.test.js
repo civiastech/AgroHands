@@ -115,8 +115,14 @@ test('migrations are recorded and idempotent', () => {
 });
 
 test('production config is validated', () => {
-  const good = { ...config, production: true, secretIsEphemeral: false, secret: 'x'.repeat(64), ninProvider: 'manual', baseUrl: 'https://agrohands.ng', logLevel: 'info' };
+  const good = {
+    ...config, production: true, secretIsEphemeral: false, secret: 'x'.repeat(64), ninProvider: 'manual', baseUrl: 'https://agrohands.ng', logLevel: 'info',
+    sms: { provider: 'africastalking', username: 'agrohands', apiKey: 'atsk_test', senderId: 'AgroHands' },
+  };
   assert.deepEqual(validateConfig(good), []);
+  assert.ok(validateConfig({ ...good, sms: { ...good.sms, provider: 'log' } }).some((e) => /SMS_PROVIDER=log/.test(e)), 'dev SMS provider refused in production');
+  assert.ok(validateConfig({ ...good, sms: { ...good.sms, apiKey: '' } }).some((e) => /AT_API_KEY/.test(e)));
+  assert.ok(validateConfig({ ...good, sms: { ...good.sms, senderId: 'AgroHands Nigeria Ltd' } }).some((e) => /SMS_SENDER_ID/.test(e)));
   assert.ok(validateConfig({ ...good, secretIsEphemeral: true }).some((e) => /SESSION_SECRET/.test(e)));
   assert.ok(validateConfig({ ...good, secret: 'short' }).some((e) => /32 characters/.test(e)));
   assert.ok(validateConfig({ ...good, ninProvider: 'mock' }).some((e) => /mock/.test(e)));

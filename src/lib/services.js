@@ -1,11 +1,12 @@
 // Business actions shared by the web app and USSD. All state changes go through here.
 import { randomBytes } from 'node:crypto';
 import { q, audit, parseJson } from '../db.js';
-import { hashPin } from '../auth.js';
+import { hashPin, revokeSessions } from '../auth.js';
 import { config } from '../config.js';
 import { buildTerms, nextContractRef } from './contract.js';
 import { refreshTier } from './tiers.js';
 import { getCourse, PASS_MARK } from '../data/courses.js';
+import { notifyOffer, notifyOfferAnswer, notifyContractSigned, notifyDisputeResolved } from './notify.js';
 
 export class AppError extends Error {
   constructor(key, status = 400) {
@@ -15,13 +16,16 @@ export class AppError extends Error {
   }
 }
 
-export function createUser({ phone, pin, role, name, lang = 'en', createdBy = null, consents = ['terms', 'privacy'] }) {
+/** pinHash: an already-hashed PIN (sign-up stores the hash while the SMS code is pending). phoneVerified: the
+ *  person proved they own the number (SMS code, or USSD where the network supplies the number). */
+export function createUser({ phone, pin, pinHash, role, name, lang = 'en', createdBy = null, consents = ['terms', 'privacy'], phoneVerified = false }) {
   if (q.get('SELECT id FROM users WHERE phone = ?', phone)) throw new AppError('auth.phone_taken');
   const finalRole = config.adminPhones.includes(phone) ? 'admin' : role;
   return q.tx(() => {
     const { lastInsertRowid: id } = q.run(
-      'INSERT INTO users (phone, pin_hash, role, name, lang, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      phone, hashPin(pin), finalRole, name.trim(), lang, createdBy,
+      `INSERT INTO users (phone, pin_hash, role, name, lang, created_by, phone_verified_at)
+       VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? THEN unixepoch() END)`,
+      phone, pinHash || hashPin(pin), finalRole, name.trim(), lang, createdBy, phoneVerified ? 1 : 0,
     );
     for (const purpose of consents) q.run('INSERT INTO consents (user_id, purpose) VALUES (?, ?)', id, purpose);
     if (finalRole === 'worker') q.run('INSERT INTO workers (user_id, languages) VALUES (?, ?)', id, JSON.stringify([lang]));
@@ -41,6 +45,7 @@ export function sendOffer(jobId, workerId, actorId) {
   if (!m || m.status !== 'shortlisted') throw new AppError('common.error');
   q.run("UPDATE matches SET status = 'offered', offered_at = unixepoch() WHERE id = ?", m.id);
   audit(actorId, 'offer.send', `match:${m.id}`, { jobId, workerId });
+  notifyOffer(m.id);
   return m.id;
 }
 
@@ -61,6 +66,7 @@ export function respondToOffer(matchId, workerId, accept) {
   if (!accept) {
     q.run("UPDATE matches SET status = 'declined', responded_at = unixepoch() WHERE id = ?", matchId);
     audit(workerId, 'offer.decline', `match:${matchId}`);
+    notifyOfferAnswer(matchId, false);
     return null;
   }
   const busy = q.get("SELECT id FROM contracts WHERE worker_id = ? AND status IN ('pending','active')", workerId);
@@ -72,7 +78,7 @@ export function respondToOffer(matchId, workerId, accept) {
   const worker = q.get('SELECT * FROM workers WHERE user_id = ?', workerId);
   const workerUser = q.get('SELECT * FROM users WHERE id = ?', workerId);
   const terms = buildTerms({ job, farm, owner, worker, workerUser });
-  return q.tx(() => {
+  const contractId = q.tx(() => {
     q.run("UPDATE matches SET status = 'accepted', responded_at = unixepoch() WHERE id = ?", matchId);
     const { lastInsertRowid } = q.run(
       `INSERT INTO contracts (ref, job_id, match_id, worker_id, farm_id, terms, start_date, end_date)
@@ -82,6 +88,8 @@ export function respondToOffer(matchId, workerId, accept) {
     audit(workerId, 'offer.accept', `match:${matchId}`, { contractId: Number(lastInsertRowid) });
     return Number(lastInsertRowid);
   });
+  notifyOfferAnswer(matchId, true, contractId);
+  return contractId;
 }
 
 export function contractParty(contract, userId) {
@@ -113,6 +121,7 @@ export function signContract(contractId, userId, meta) {
     }
     audit(userId, 'contract.sign', `contract:${contractId}`, { party });
   });
+  notifyContractSigned(contractId);
 }
 
 export function endContract(contractId, userId, reason) {
@@ -191,13 +200,37 @@ export function gradeQuiz(userId, courseId, answers) {
   return { score, passed, correct, total: course.quiz.length, cert };
 }
 
+/** Sets a new PIN, clears any lockout and signs the user out everywhere except (optionally) this device. */
+export function setPin(userId, pin, { keepSessionId, actorId = userId, reason = 'change' } = {}) {
+  q.tx(() => {
+    q.run('UPDATE users SET pin_hash = ?, failed_pins = 0, locked_until = NULL WHERE id = ?', hashPin(pin), userId);
+    revokeSessions(userId, { exceptId: keepSessionId });
+    audit(actorId, 'user.pin_' + reason, `user:${userId}`);
+  });
+}
+
+/** Admin closes a dispute; the person who raised it is told by SMS. */
+export function resolveDispute(disputeId, adminId, status, resolution) {
+  const st = ['resolved', 'rejected'].includes(status) ? status : 'resolved';
+  const { changes } = q.run(
+    "UPDATE disputes SET status = ?, resolution = ?, resolved_by = ?, resolved_at = unixepoch() WHERE id = ? AND status = 'open'",
+    st, String(resolution || '').slice(0, 1000), adminId, disputeId);
+  if (!changes) throw new AppError('common.not_found', 404);
+  audit(adminId, 'dispute.' + st, `dispute:${disputeId}`);
+  notifyDisputeResolved(disputeId);
+}
+
 export function profileComplete(w) {
   return !!(w && w.state && w.lga && w.dob && parseJson(w.skills).length && w.expected_wage);
 }
 
 /** NDPA right to erasure: anonymise the person, keep contract records the law requires. */
 export function deleteAccount(userId) {
+  const phone = q.get('SELECT phone FROM users WHERE id = ?', userId)?.phone;
   q.tx(() => {
+    revokeSessions(userId);
+    q.run("UPDATE sms_outbox SET phone = 'deleted', body = '[removed]', status = CASE WHEN status = 'sent' THEN 'sent' ELSE 'failed' END WHERE user_id = ? OR phone = ?", userId, phone);
+    q.run('DELETE FROM otp_codes WHERE phone = ?', phone);
     q.run(
       `UPDATE users SET status = 'deleted', name = 'Deleted user', phone = 'deleted-' || id, pin_hash = 'x' WHERE id = ?`,
       userId,

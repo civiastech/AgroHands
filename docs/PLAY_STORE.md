@@ -144,7 +144,7 @@ Your data is protected under the Nigeria Data Protection Act. We never store you
 
 ### Data safety
 
-- Collects or shares data: **Yes, it collects. It does not share.** (Farms seeing a worker's profile after the worker accepts is user-initiated, and NIN checks by a verification provider are processing on your behalf. Neither counts as "sharing" under Play's definitions.)
+- Collects or shares data: **Yes, it collects. It does not share.** (Farms seeing a worker's profile after the worker accepts is user-initiated, and NIN checks by a verification provider and SMS delivery by Africa's Talking are processing on your behalf. Neither counts as "sharing" under Play's definitions.)
 - Encrypted in transit: **Yes**
 - Users can request deletion: **Yes** (`/account-deletion`)
 
