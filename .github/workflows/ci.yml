@@ -64,8 +64,16 @@ jobs:
 
       - name: Smoke test the container
         run: |
+          # Production config is validated at start-up: without an SMS provider nobody could sign up, so it must refuse.
+          if docker run --rm -e SESSION_SECRET=$(openssl rand -hex 32) -e BASE_URL=https://ci.example agrohands:ci 2>&1 | tee /dev/stderr | grep -q "AT_API_KEY"; then
+            echo "refuses to start without SMS credentials: ok"
+          else
+            echo "expected a config error about AT_API_KEY" && exit 1
+          fi
+          # Placeholder sandbox credentials: nothing is texted at start-up, so no request reaches Africa's Talking.
           docker run -d --name ah -p 3000:3000 \
             -e SESSION_SECRET=$(openssl rand -hex 32) -e BASE_URL=https://ci.example \
+            -e AT_USERNAME=sandbox -e AT_API_KEY=ci-placeholder \
             --read-only --tmpfs /tmp agrohands:ci
           for i in $(seq 1 30); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' ah)" = healthy ] && break; sleep 1
