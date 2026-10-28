@@ -165,7 +165,7 @@ export default function register(r) {
     // Tells the worker their account exists (and how to reset the PIN), so a wrong number is noticed at once.
     notify(id, 'welcome_agent');
     ctx.render(t('agent.register_worker'), html`
-      <p class="flash">✔ ${b.name} — ${phone}</p>
+      <p class="flash">${b.name} — ${phone}</p>
       <div class="card"><p>${t('agent.temp_pin')}:</p><p class="score" style="font-size:36px;letter-spacing:6px">${pin}</p>
       <p class="small muted">Tell the worker this PIN privately. It is shown only once.</p></div>
       <a class="btn block" href="/a/w/${id}">${t('common.view')} →</a>`);
