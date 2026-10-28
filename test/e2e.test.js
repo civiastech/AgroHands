@@ -217,6 +217,27 @@ test('French web journey: browser language, menus and pages', async () => {
   assert.equal(c.jar.ah_lang, 'fr');
   const home = await c.get('/');
   assert.match(home.text, /Du travail agricole en toute confiance/);
+  // Training is in French too, with no "English for now" note.
+  const course = await c.get('/academy/safety-101');
+  assert.match(course.text, /Sécurité à la ferme, EPI et premiers secours/);
+  assert.match(course.text, /N’incisez pas la plaie/);
+  assert.doesNotMatch(course.text, /Course text is in English|Les cours sont en anglais/);
+});
+
+test('a French-speaking worker passes the safety quiz in French and is graded correctly', async () => {
+  const phone = '08100000066';
+  createUser({ phone, pin: '1234', role: 'worker', name: 'Amadou Diallo', lang: 'fr' });
+  const c = new Client();
+  await c.get('/lang/fr');
+  await c.post('/login', { phone, pin: '1234' });
+  const quiz = await c.get('/academy/safety-101/quiz');
+  assert.match(quiz.text, /On vous demande de pulvériser/);
+  assert.match(quiz.text, /Je demande les EPI avant de commencer/);
+  // Correct answers are the same indexes as in English.
+  const r = await c.post('/academy/safety-101/quiz', { a0: '1', a1: '1', a2: '1', a3: '1' });
+  assert.match(r.text, /Bravo ! Vous avez réussi\./);
+  const { q } = await import('../src/db.js');
+  assert.equal(q.get("SELECT passed FROM course_progress p JOIN users u ON u.id = p.user_id WHERE u.phone = ? AND course_id = 'safety-101'", phone).passed, 1);
 });
 
 test('security basics', async () => {

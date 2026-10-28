@@ -113,6 +113,33 @@ test('French is a complete translation (every English key, same placeholders)', 
   }
 });
 
+test('course translations match the English shape exactly (grading depends on option order)', async () => {
+  const { COURSES, COURSE_TRANSLATIONS, localizeCourse } = await import('../src/data/courses.js');
+  for (const [lang, courses] of Object.entries(COURSE_TRANSLATIONS)) {
+    for (const c of COURSES) {
+      const tr = courses[c.id];
+      assert.ok(tr, `${lang} is missing course ${c.id}`);
+      assert.ok(tr.title, `${lang}/${c.id} title`);
+      assert.equal(tr.lessons.length, c.lessons.length, `${lang}/${c.id} lesson count`);
+      c.lessons.forEach((l, i) => {
+        assert.ok(tr.lessons[i].title, `${lang}/${c.id} lesson ${i} title`);
+        assert.equal(tr.lessons[i].body.length, l.body.length, `${lang}/${c.id} lesson ${i} paragraphs`);
+      });
+      assert.equal(tr.quiz.length, c.quiz.length, `${lang}/${c.id} question count`);
+      c.quiz.forEach((item, i) => {
+        assert.equal(tr.quiz[i].options.length, item.options.length, `${lang}/${c.id} Q${i + 1} options`);
+        assert.equal(tr.quiz[i].answer, undefined, 'answers come only from the English source');
+      });
+      const loc = localizeCourse(c, lang);
+      assert.equal(loc.translated, true);
+      assert.deepEqual(loc.quiz.map((x) => x.answer), c.quiz.map((x) => x.answer), 'answers unchanged');
+      assert.equal(loc.fee, c.fee);
+    }
+  }
+  assert.equal(localizeCourse(COURSES[0], 'yo').translated, false, 'untranslated languages fall back to English');
+  assert.equal(localizeCourse(COURSES[0], 'yo').title, COURSES[0].title);
+});
+
 test('browser language detection follows Accept-Language preference order', async () => {
   const { pickLang } = await import('../src/i18n/index.js');
   assert.equal(pickLang(undefined, 'fr-BE,fr;q=0.9,en;q=0.8'), 'fr');

@@ -1,10 +1,13 @@
 // Training academy content. Lessons are short, plain-language and audio-ready (add audioUrl per
-// language once recordings exist). English is the source text; translations are added per course
-// as `i18n: { yo: {...}, ha: {...} }` after native-speaker review.
+// language once recordings exist). English is the source text. A translation lives in
+// courses.<lang>.js with exactly the same shape and option order, is registered in
+// COURSE_TRANSLATIONS below, and is shape-checked by test/unit.test.js. Add one only after review.
 //
 // Standards referenced: ILO Code of Practice on Safety and Health in Agriculture (2010),
 // FAO/WHO International Code of Conduct on Pesticide Management, GLOBALG.A.P. IFA / GRASP concepts,
 // Nigeria Labour Act (Cap L1 LFN 2004), NBTE National Occupational Standards (agriculture).
+
+import courseFr from './courses.fr.js';
 
 export const COURSES = [
   {
@@ -225,3 +228,23 @@ export const COURSES = [
 
 export const getCourse = (id) => COURSES.find((c) => c.id === id);
 export const PASS_MARK = 75;
+
+/** Translated course text by language: { fr: { 'safety-101': { title, lessons, quiz } } }. */
+export const COURSE_TRANSLATIONS = { fr: courseFr };
+
+/**
+ * The course in the reader's language when a translation exists, else English.
+ * Only text is replaced: ids, fees, answers and option order always come from the English source,
+ * so quiz grading is identical in every language.
+ */
+export function localizeCourse(course, lang) {
+  const tr = course && COURSE_TRANSLATIONS[lang]?.[course.id];
+  if (!tr) return course ? { ...course, translated: false } : course;
+  return {
+    ...course,
+    translated: true,
+    title: tr.title,
+    lessons: course.lessons.map((l, i) => ({ ...l, title: tr.lessons[i].title, body: tr.lessons[i].body })),
+    quiz: course.quiz.map((item, i) => ({ ...item, q: tr.quiz[i].q, options: tr.quiz[i].options })),
+  };
+}

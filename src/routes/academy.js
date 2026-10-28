@@ -1,7 +1,8 @@
 import { html, naira } from '../html.js';
 import { form, icon, progress as progressBar, backLink } from '../views/ui.js';
 import { q } from '../db.js';
-import { COURSES, getCourse, PASS_MARK } from '../data/courses.js';
+import { COURSES, getCourse, localizeCourse, PASS_MARK } from '../data/courses.js';
+import { htmlLang } from '../i18n/index.js';
 import { gradeQuiz, AppError } from '../lib/services.js';
 
 export default function register(r) {
@@ -9,7 +10,7 @@ export default function register(r) {
     const { t, user } = ctx;
     const audience = user?.role === 'farmer' ? 'farmer' : user?.role === 'worker' ? 'worker' : null;
     const progress = user ? Object.fromEntries(q.all('SELECT course_id, passed, score, cert_code FROM course_progress WHERE user_id = ?', user.id).map((p) => [p.course_id, p])) : {};
-    const list = COURSES.filter((c) => !audience || c.audience === audience);
+    const list = COURSES.filter((c) => !audience || c.audience === audience).map((c) => localizeCourse(c, ctx.lang));
     const passed = list.filter((c) => progress[c.id]?.passed).length;
     ctx.render(t('academy.title'), html`
       <section class="card card-hero">
@@ -28,12 +29,12 @@ export default function register(r) {
           ${p?.passed ? html`<span class="pill s-active">${t('academy.passed')}</span>` : ''}${icon('right', { cls: 'chev' })}</a>`;
       })}
       </div>
-      <p class="small muted">${t('academy.translation_note')}</p>`);
+      ${list.some((c) => !c.translated) ? html`<p class="small muted">${t('academy.translation_note')}</p>` : ''}`);
   });
 
   r.get('/academy/:id', (ctx) => {
     const { t } = ctx;
-    const c = getCourse(ctx.params.id);
+    const c = localizeCourse(getCourse(ctx.params.id), ctx.lang);
     if (!c) throw new AppError('common.not_found', 404);
     ctx.render(c.title, html`
       ${backLink('/academy', t('academy.title'))}
@@ -41,7 +42,10 @@ export default function register(r) {
         <div class="grow"><h1>${c.title}</h1><p>${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')} · ${c.lessons.length} ${t('academy.lessons')}</p></div></div>
       <p class="small muted">Standard: ${c.standard}</p>
       ${c.fee ? html`<p class="flash">${t('academy.paid_note')}</p>` : ''}
+      ${!c.translated && ctx.lang !== 'en' ? html`<p class="flash info">${t('academy.translation_note')}</p>` : ''}
+      <div lang="${c.translated ? htmlLang(ctx.lang) : 'en'}">
       ${c.lessons.map((l, i) => html`<div class="card lesson"><h3>${i + 1}. ${l.title}</h3>${l.body.map((p) => html`<p>${p}</p>`)}</div>`)}
+      </div>
       ${ctx.user ? html`<a class="btn block" href="/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`
         : html`<a class="btn block" href="/login?next=/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`}`);
   });
@@ -49,7 +53,7 @@ export default function register(r) {
   r.get('/academy/:id/quiz', (ctx) => {
     if (!ctx.need()) return;
     const { t } = ctx;
-    const c = getCourse(ctx.params.id);
+    const c = localizeCourse(getCourse(ctx.params.id), ctx.lang);
     if (!c) throw new AppError('common.not_found', 404);
     ctx.render(`${t('academy.quiz')} · ${c.title}`, html`
       <h1>📝 ${t('academy.quiz')}: ${c.title}</h1>
@@ -62,7 +66,7 @@ export default function register(r) {
   r.post('/academy/:id/quiz', (ctx) => {
     if (!ctx.need()) return;
     const { t } = ctx;
-    const c = getCourse(ctx.params.id);
+    const c = localizeCourse(getCourse(ctx.params.id), ctx.lang);
     if (!c) throw new AppError('common.not_found', 404);
     const answers = c.quiz.map((_, i) => ctx.body[`a${i}`]);
     const res = gradeQuiz(ctx.user.id, c.id, answers);
@@ -81,7 +85,7 @@ export default function register(r) {
       `SELECT p.*, u.name FROM course_progress p JOIN users u ON u.id = p.user_id WHERE p.cert_code = ? AND p.passed = 1`,
       ctx.params.code);
     if (!p) throw new AppError('common.not_found', 404);
-    const c = getCourse(p.course_id);
+    const c = localizeCourse(getCourse(p.course_id), ctx.lang);
     ctx.render(t('academy.certificate'), html`
       <div class="cert">
         <p style="font-size:40px;margin:0">🏅</p>
