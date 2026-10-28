@@ -13,10 +13,18 @@ function serialise(value) {
   return value;
 }
 
+const errorListeners = new Set();
+/** Called for every error-level entry (used by lib/alerts.js). Returns an unsubscribe function. */
+export function onError(fn) {
+  errorListeners.add(fn);
+  return () => errorListeners.delete(fn);
+}
+
 function write(level, msg, fields = {}) {
   if (LEVELS[level] < threshold) return;
   const data = {};
   for (const [k, v] of Object.entries(fields)) if (v !== undefined) data[k] = serialise(v);
+  if (level === 'error') for (const fn of errorListeners) { try { fn(msg, data); } catch { /* never let alerting break logging */ } }
   if (format === 'json') {
     sink(JSON.stringify({ time: new Date().toISOString(), level, msg, ...data }), level);
   } else {

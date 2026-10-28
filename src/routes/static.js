@@ -41,7 +41,7 @@ export const JS = `
 
   // Confirm prompts, then a loading state that also blocks double submits on slow networks.
   document.addEventListener('submit', function (e) {
-    var f = e.target, m = f.getAttribute('data-confirm');
+    var f = e.target, m = (e.submitter && e.submitter.getAttribute('data-confirm')) || f.getAttribute('data-confirm');
     if (m && !window.confirm(m)) { e.preventDefault(); return; }
     if (f.method.toLowerCase() !== 'post') return;
     if (f.dataset.sent) { e.preventDefault(); return; }

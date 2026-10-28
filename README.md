@@ -21,14 +21,16 @@ Farm owners find NIN-verified, trained, rated farm workers. They get a contract 
 | Sign-up and sign-in | Phone ownership is proved with a 6-digit SMS code before an account exists. Forgot PIN resets by SMS code. Sessions are stored on the server, so logout, a PIN change, a reset or a suspension ends them at once (with "sign out other devices"). |
 | SMS alerts | Workers are texted job offers; farmers are texted when a worker accepts or declines; both sides are texted to sign and when the contract is active; dispute answers. In the recipient's language, one GSM-7 SMS each, through an outbox with retries (Africa's Talking). |
 | Field agents | Assisted sign-up with a temporary PIN (the worker gets a welcome SMS); NIN slip confirmation; guarantor calls; address checks; skill assessments; farm verification. |
-| Admin | KPIs, dispute resolution, roles and suspensions, full audit log. |
+| Admin console | Overview with a "needs attention" queue; user search and profiles (role, suspend with a reason, sign out everywhere); farm verification; job moderation; disputes; SMS delivery with retries; payments; filterable audit log; CSV exports (formula-safe, every download logged). |
+| Payments | Paystack checkout for paid courses on the website (card, transfer, USSD). Server-side verification with amount checks, signed webhooks, idempotent. Hidden inside the Play app (Google Play billing rules). |
+| Backups and alerts | Nightly online backups, encrypted (AES-256-GCM) off-site copies to any S3-compatible bucket, restore script with integrity check, backup heartbeat, error alerts to Slack/Discord. |
 | USSD | `POST /ussd` in Africa's Talking format: register, see and accept offers, check status, change language. |
 | Data protection (NDPA) | Consent records; the full NIN is never stored (keyed hash + last 4 digits only); download my data; delete my account (contract records kept). |
 | Security | PBKDF2 PINs; revocable server-side sessions (only token hashes stored); SMS codes hashed, single-use, 5 guesses, 10 minutes, 5 per number per hour; CSRF tokens; lockout after 5 wrong PINs; per-IP rate limits; HSTS and strict security headers; all output escaped; proxy-aware IP capture so e-signature evidence can't be spoofed. |
 | Operations | Versioned DB migrations; structured JSON logs with request IDs; `/healthz`, `/readyz`, `/version`, Prometheus `/metrics`; graceful shutdown; automated backups; fail-fast config validation. |
 | Offline & Android | Installable PWA and a Google Play app (Trusted Web Activity). Training pages work offline. |
 
-**Not in this build:** Phase 2 payroll (money movement through Paystack, Flutterwave or Moniepoint), paid course checkout, and recorded audio lessons. The code is structured so each can be added without rework.
+**Not in this build:** Phase 2 payroll (wages moving through AgroHands), placement-fee invoicing, and recorded audio lessons. The code is structured so each can be added without rework.
 
 ## Run it locally
 
@@ -117,8 +119,10 @@ Every setting is documented in [.env.example](.env.example). In production the a
 - [ ] Recruiter's licence application filed
 - [ ] Data Privacy Impact Assessment done; Data Protection Officer named
 - [ ] Backups tested by restoring once (see docs/DEPLOYMENT.md)
-- [ ] Off-site copy of `./backups` scheduled (rclone, object storage or similar)
-- [ ] Uptime monitor pointed at `https://<domain>/readyz`
+- [ ] Africa's Talking live account, sender id registered, `AT_USERNAME`/`AT_API_KEY`/`SMS_SENDER_ID` set
+- [ ] Off-site backups: `BACKUP_S3_*` and `BACKUP_ENCRYPTION_KEY` set (key saved in a password manager), first upload seen in the logs
+- [ ] `BACKUP_HEARTBEAT_URL` and `ALERT_WEBHOOK_URL` set; uptime monitor on `https://<domain>/readyz`
+- [ ] Paystack: test purchase done, webhook URL set, live key in place (or leave unset to keep paid courses free)
 
 ## Architecture
 

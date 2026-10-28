@@ -56,7 +56,7 @@ The current design targets one instance. When you outgrow it:
 | --- | --- |
 | More throughput on one box | Bigger VM first. SQLite in WAL mode handles thousands of writes per second. |
 | Several app instances | Move the `RateLimiter` store to Redis and SQLite to Postgres. Services use `q.get/all/run/tx` only, so the swap stays inside `db.js` and the SQL dialect. |
-| Payments (Phase 2) | A new adapter beside `lib/verify.js` (provider chosen by env), called from `services.js`. |
+| Payroll (Phase 2) | `lib/payments.js` already handles checkout, verification and webhooks; add a `purpose` (e.g. `placement`, `payroll`) and its fulfilment in `apply()`. |
 | More SMS providers | `lib/sms.js` has one `sendViaProvider` switch; add Termii or another gateway there. The outbox, retries and tests stay the same. |
 
 ## Testing

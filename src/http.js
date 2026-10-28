@@ -29,8 +29,13 @@ export async function readBody(req) {
   }
   const text = Buffer.concat(chunks).toString('utf8');
   const type = req.headers['content-type'] || '';
+  // The raw text is kept (not enumerable) for webhook signature checks.
+  const withRaw = (obj) => Object.defineProperty(obj, 'raw', { value: text, enumerable: false });
   if (type.includes('application/json')) {
-    try { return JSON.parse(text || '{}'); } catch { return {}; }
+    try {
+      const parsed = JSON.parse(text || '{}');
+      return withRaw(parsed && typeof parsed === 'object' ? parsed : {});
+    } catch { return withRaw({}); }
   }
   // urlencoded (forms, Africa's Talking USSD)
   const params = new URLSearchParams(text);
@@ -45,7 +50,7 @@ export async function readBody(req) {
       out[k] = v;
     }
   }
-  return out;
+  return withRaw(out);
 }
 
 export class Res {
@@ -77,7 +82,7 @@ export class Res {
     };
     if (type.startsWith('text/html')) {
       headers['Content-Security-Policy'] =
-        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'";
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'self' https://checkout.paystack.com; frame-ancestors 'none'";
     }
     if (this.cookies.length) headers['Set-Cookie'] = this.cookies;
     this.res.writeHead(this.status, headers);

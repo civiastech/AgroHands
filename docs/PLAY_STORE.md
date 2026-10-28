@@ -157,6 +157,8 @@ Your data is protected under the Nigeria Data Protection Act. We never store you
 | Location → Approximate location | Yes | Optional | App functionality |
 | Location → Precise location (only when "Use my current location" is pressed) | Yes | Optional | App functionality |
 | Financial info → Other financial info (wage expectation, job pay) | Yes | Required | App functionality |
+
+Payments: none are taken inside the app (paid courses show "not available in the Android app"), so answer **No** for "Purchase history" and "Payment info" unless you later add Google Play billing.
 | App activity → Other user-generated content (ratings, dispute text) | Yes | Optional | App functionality |
 | App activity → Other actions (training progress, quiz results) | Yes | Optional | App functionality |
 

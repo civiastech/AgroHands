@@ -276,4 +276,13 @@ export default {
   'sms.contract_active': "AgroHands: awon mejeeji ti fowo si iwe adehun {ref}. Ise bere ni {date}. Orire o!",
   'sms.dispute_resolved': "AgroHands: a ti dahun ejo re lori iwe adehun {ref}. Wole si {site} lati ri esi.",
   'sms.welcome_agent': "E kaabo si AgroHands! Asoju kan ti si akanti fun yin. Wole ni {site} tabi lori USSD. Gbagbe PIN? {site}/forgot",
+  // Payments (Paystack, website only)
+  'pay.button': "San {amount} láti ṣe ìdánwò náà",
+  'pay.secure': "Ìsanwó tó ní ààbò láti ọwọ́ Paystack: káàdì, ìfiránṣẹ́ báńkì tàbí USSD. A kò rí àlàyé káàdì rẹ rí.",
+  'pay.success': "A ti gba owó náà. O ṣé o! O lè ṣe ìdánwò náà báyìí.",
+  'pay.failed': "Ìsanwó náà kò parí, a kò sì gba owó lọ́wọ́ rẹ. O lè gbìyànjú lẹ́ẹ̀kan sí i.",
+  'pay.pending': "A ṣì ń jẹ́rìí ìsanwó rẹ. Tún ojú-ìwé yìí ṣí lẹ́yìn ìṣẹ́jú kan.",
+  'pay.required': "Ẹ̀kọ́ yìí nílò ìsanwó kí o tó ṣe ìdánwò.",
+  'pay.unavailable': "Ìsanwó kò sí lọ́wọ́lọ́wọ́. Jọ̀wọ́ gbìyànjú lẹ́yìn náà.",
+  'pay.not_in_app': "Àwọn ẹ̀kọ́ tí a ń sanwó fún kò sí nínú áàpù Android.",
 };

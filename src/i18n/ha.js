@@ -276,4 +276,13 @@ export default {
   'sms.contract_active': "AgroHands: bangarorin biyu sun sa hannu a kwangila {ref}. Aiki zai fara {date}. Allah ya taimaka!",
   'sms.dispute_resolved': "AgroHands: an amsa korafinka kan kwangila {ref}. Shiga {site} don ganin sakamako.",
   'sms.welcome_agent': "Barka da zuwa AgroHands! Wakili ya bude maka asusu. Shiga {site} ko ta USSD. Ka manta PIN? Je {site}/forgot",
+  // Payments (Paystack, website only)
+  'pay.button': "Biya {amount} don yin jarrabawar",
+  'pay.secure': "Biyan kudi lafiya ta Paystack: kati, tura kudi ta banki ko USSD. Ba ma ganin bayanan katinka.",
+  'pay.success': "An karbi kudin. Mun gode! Za ka iya yin jarrabawar yanzu.",
+  'pay.failed': "Biyan bai kammalu ba kuma ba a cire maka kudi ba. Za ka iya sake gwadawa.",
+  'pay.pending': "Har yanzu muna tabbatar da biyanka. Sake bude shafin bayan minti daya.",
+  'pay.required': "Wannan kwas yana bukatar biya kafin jarrabawa.",
+  'pay.unavailable': "Biyan kudi ba ya aiki yanzu. Da fatan za ka sake gwadawa daga baya.",
+  'pay.not_in_app': "Kwasa-kwasan da ake biya ba sa cikin manhajar Android.",
 };

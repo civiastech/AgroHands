@@ -372,4 +372,13 @@ export default {
   'sms.contract_active': "AgroHands : le contrat {ref} est signé par les deux parties et actif. Début du travail le {date}. Bon courage !",
   'sms.dispute_resolved': "AgroHands : votre réclamation sur le contrat {ref} a été traitée. Connectez-vous sur {site} pour voir la réponse.",
   'sms.welcome_agent': "Bienvenue sur AgroHands ! Un agent a créé votre compte. Connectez-vous sur {site} ou par USSD. PIN oublié ? {site}/forgot",
+  // Payments (Paystack, website only)
+  'pay.button': "Payer {amount} pour passer le quiz",
+  'pay.secure': "Paiement sécurisé par Paystack : carte, virement ou USSD. Nous ne voyons jamais les données de votre carte.",
+  'pay.success': "Paiement reçu. Merci ! Vous pouvez passer le quiz.",
+  'pay.failed': "Le paiement n'a pas abouti et vous n'avez pas été débité. Vous pouvez réessayer.",
+  'pay.pending': "Nous confirmons encore votre paiement. Actualisez cette page dans une minute.",
+  'pay.required': "Ce cours doit être payé avant le quiz.",
+  'pay.unavailable': "Le paiement n'est pas disponible pour le moment. Réessayez plus tard.",
+  'pay.not_in_app': "Les cours payants ne sont pas disponibles dans l'application Android.",
 };

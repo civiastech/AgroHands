@@ -33,7 +33,8 @@ const twa = {
   navigationDividerColorDark: '#1F6F43',
   backgroundColor: '#F7F9F7',
   enableNotifications: false,
-  startUrl: '/',
+  // The query marks in-app sessions (no web checkout inside the Play app). Changing it later needs a new app release.
+  startUrl: '/?src=android',
   iconUrl: `${assets}/icons/icon-512.png`,
   maskableIconUrl: `${assets}/icons/maskable-512.png`,
   monochromeIconUrl: `${assets}/icons/monochrome-512.png`,

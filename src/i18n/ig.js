@@ -276,4 +276,13 @@ export default {
   'sms.contract_active': "AgroHands: akuku abuo abanyela aka na nkwekorita {ref}. Oru ga-amalite {date}. Ihe oma!",
   'sms.dispute_resolved': "AgroHands: anyi azaala mkpesa gi gbasara nkwekorita {ref}. Banye na {site} ka i hu ihe a kpebiri.",
   'sms.welcome_agent': "Nnoo na AgroHands! Onye nnochite anya mepere gi akaunti. Banye na {site} ma o bu USSD. Chefuru PIN? {site}/forgot",
+  // Payments (Paystack, website only)
+  'pay.button': "Kwụọ {amount} ka ị nwee ule ahụ",
+  'pay.secure': "Ịkwụ ụgwọ nchekwa site na Paystack: kaadị, nnyefe ụlọ akụ ma ọ bụ USSD. Anyị anaghị ahụ nkọwa kaadị gị.",
+  'pay.success': "Anyị anatala ego ahụ. Daalụ! Ị nwere ike ime ule ahụ ugbu a.",
+  'pay.failed': "Ịkwụ ụgwọ ahụ emechaghị, ewepụghịkwa gị ego. Ị nwere ike ịnwa ọzọ.",
+  'pay.pending': "Anyị ka na-akwado ịkwụ ụgwọ gị. Megharịa ibe a mgbe otu nkeji gachara.",
+  'pay.required': "Ọmụmụ ihe a chọrọ ịkwụ ụgwọ tupu ule.",
+  'pay.unavailable': "Ịkwụ ụgwọ adịghị ugbu a. Biko nwaa ọzọ ma emechaa.",
+  'pay.not_in_app': "Ọmụmụ ihe a na-akwụ ụgwọ adịghị na ngwa Android.",
 };

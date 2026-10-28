@@ -458,3 +458,18 @@ main.full > .toast { margin: 12px 16px; }
   main { max-width: none; padding: 0; }
   .card { box-shadow: none; border-color: #ccc; }
 }
+
+/* ---------- Admin console ---------- */
+.subnav { display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 4px 0 18px; background: var(--surface-2); border-radius: var(--r); scrollbar-width: none; }
+.subnav::-webkit-scrollbar { display: none; }
+.subnav a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: var(--r-sm); text-decoration: none; color: var(--ink-2); font-weight: 650; font-size: 14.5px; white-space: nowrap; }
+.subnav a[aria-current="page"] { background: var(--surface); color: var(--brand); box-shadow: var(--sh-1); }
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 12px 0 14px; }
+.filters label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; max-width: 340px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.filters input, .filters select { min-height: 42px; }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; }
+.count-pill { min-width: 28px; padding: 2px 9px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.row.wrap { flex-wrap: wrap; }
+.nowrap { white-space: nowrap; }
+.text-bad { color: var(--bad); }
+.s-suspended, .s-failed, .s-rejected { background: var(--bad-soft); color: var(--bad); }

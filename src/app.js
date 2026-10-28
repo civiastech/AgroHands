@@ -27,6 +27,7 @@ import academyRoutes from './routes/academy.js';
 import agentRoutes from './routes/agent.js';
 import adminRoutes from './routes/admin.js';
 import ussdRoutes from './routes/ussd.js';
+import paymentRoutes from './routes/payments.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const TYPES = { '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.json': 'application/json' };
@@ -61,12 +62,13 @@ export function buildRouter() {
   });
   for (const [path, body, type] of publicFiles()) r.get(path, cached(body, type));
   r.get('/robots.txt', (ctx) => ctx.res.text('User-agent: *\nDisallow: /w/\nDisallow: /f/\nDisallow: /a/\nDisallow: /admin\nDisallow: /c/\n'));
-  [opsRoutes, wellKnownRoutes, publicRoutes, workerRoutes, farmerRoutes, contractRoutes, academyRoutes, agentRoutes, adminRoutes, ussdRoutes]
+  [opsRoutes, wellKnownRoutes, publicRoutes, workerRoutes, farmerRoutes, contractRoutes, academyRoutes, agentRoutes, adminRoutes, ussdRoutes, paymentRoutes]
     .forEach((register) => register(r));
   return r;
 }
 
-const CSRF_EXEMPT = new Set(['/ussd']);
+// Machine callers authenticate another way: USSD with ?key=, Paystack with an HMAC signature.
+const CSRF_EXEMPT = new Set(['/ussd', '/pay/webhook']);
 // Routes that check a PIN, create accounts or trigger paid NIN look-ups get the strict limit.
 const AUTH_ROUTES = new Set(['/login', '/register', '/verify', '/verify/resend', '/forgot', '/me/pin', '/a/register', '/w/verify', '/c/:id/sign', '/me/delete', '/ussd']);
 // Ops probes are hit every few seconds; keep them out of access logs and latency metrics noise.
@@ -118,6 +120,9 @@ export function createHandler({ limits = config.rateLimit } = {}) {
       ctx.user = readSession(cookies.ah_s);
       ctx.lang = pickLang(cookies.ah_lang || ctx.user?.lang, req.headers['accept-language']);
       ctx.t = translator(ctx.lang);
+      // Inside the Play Store app (launched at /?src=android). Digital goods can't be sold there outside Google Play billing.
+      ctx.inApp = cookies.ah_app === '1' || ctx.query.src === 'android' || String(req.headers.referer || '').startsWith('android-app://');
+      if (ctx.inApp && cookies.ah_app !== '1') res.cookie('ah_app', '1', { maxAge: 86400 * 365, secure });
       ctx.csrf = cookies.ah_csrf || newCsrfToken();
       if (!cookies.ah_csrf) res.cookie('ah_csrf', ctx.csrf, { maxAge: 86400 * 30, secure });
       if (cookies.ah_f) {

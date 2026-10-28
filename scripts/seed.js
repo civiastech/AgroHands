@@ -22,14 +22,14 @@ if (q.get('SELECT COUNT(*) AS n FROM users').n > 0) {
 }
 
 const PIN = '1234';
-const admin = createUser({ phone: '08000000001', pin: PIN, role: 'worker', name: 'Platform Admin' });
+const admin = createUser({ phone: '08000000001', pin: PIN, role: 'worker', name: 'Platform Admin', phoneVerified: true });
 q.run("UPDATE users SET role = 'admin' WHERE id = ?", admin);
 q.run('DELETE FROM workers WHERE user_id = ?', admin);
-const agent = createUser({ phone: '08000000002', pin: PIN, role: 'worker', name: 'Kunle Agent' });
+const agent = createUser({ phone: '08000000002', pin: PIN, role: 'worker', name: 'Kunle Agent', phoneVerified: true });
 q.run("UPDATE users SET role = 'agent' WHERE id = ?", agent);
 q.run('DELETE FROM workers WHERE user_id = ?', agent);
 
-const farmer = createUser({ phone: '08030000001', pin: PIN, role: 'farmer', name: 'Joshua Oladeji' });
+const farmer = createUser({ phone: '08030000001', pin: PIN, role: 'farmer', name: 'Joshua Oladeji', phoneVerified: true });
 const { lastInsertRowid: farmId } = q.run(
   `INSERT INTO farms (owner_id, name, state, lga, address, lat, lng, size_ha, crops, verified, verified_by, plan)
    VALUES (?, 'Farmnest Ogbomoso Smart Pineapple Farm', 'Oyo', 'Ogbomoso North', 'Off Ogbomoso–Ilorin road', 8.1339, 4.2401, 20, 'Pineapple, oil palm', 1, ?, 'pro')`,
@@ -67,7 +67,7 @@ const W = [
 
 W.forEach(([name, state, lga, lat, lng, skills, primary, years, wage, period, relocate, plan], i) => {
   const phone = `081000000${String(i + 1).padStart(2, '0')}`;
-  const id = createUser({ phone, pin: PIN, role: 'worker', name, createdBy: agent });
+  const id = createUser({ phone, pin: PIN, role: 'worker', name, createdBy: agent, phoneVerified: true });
   const year = 1980 + (i % 20);
   q.run(
     `UPDATE workers SET state = ?, lga = ?, town = ?, lat = ?, lng = ?, skills = ?, primary_skill = ?, years_exp = ?,

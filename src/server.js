@@ -8,6 +8,7 @@ import { log } from './lib/log.js';
 import { startSmsWorker, stopSmsWorker } from './lib/sms.js';
 import { pruneSessions } from './auth.js';
 import { pruneOtps } from './lib/otp.js';
+import { startAlerts } from './lib/alerts.js';
 
 const problems = validateConfig();
 if (problems.length) {
@@ -16,6 +17,7 @@ if (problems.length) {
   process.exit(1);
 }
 for (const w of configWarnings()) log.warn(w);
+startAlerts(); // error-level logs → chat webhook (ALERT_WEBHOOK_URL)
 
 openDb(config.dbPath, { migrate: false });
 const applied = migrate();

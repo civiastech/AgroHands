@@ -276,4 +276,13 @@ export default {
   'sms.contract_active': "AgroHands: both sides don sign contract {ref} and e don start. Work go start {date}. Good luck!",
   'sms.dispute_resolved': "AgroHands: we don answer your complaint for contract {ref}. Enter {site} to see wetin we decide.",
   'sms.welcome_agent': "Welcome to AgroHands! Agent don open account for you. Enter {site} or use USSD. You forget PIN? Go {site}/forgot",
+  // Payments (Paystack, website only)
+  'pay.button': "Pay {amount} make you take the quiz",
+  'pay.secure': "Safe payment through Paystack: card, bank transfer or USSD. We no dey see your card details.",
+  'pay.success': "We don receive the money. Thank you! You fit take the quiz now.",
+  'pay.failed': "The payment no complete and dem no remove money. You fit try again.",
+  'pay.pending': "We still dey confirm your payment. Refresh this page after one minute.",
+  'pay.required': "You go pay for this course before the quiz.",
+  'pay.unavailable': "Payment no dey work now. Abeg try again later.",
+  'pay.not_in_app': "Paid courses no dey inside the Android app.",
 };

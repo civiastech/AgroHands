@@ -4,6 +4,14 @@ import { q } from '../db.js';
 import { COURSES, getCourse, localizeCourse, PASS_MARK } from '../data/courses.js';
 import { htmlLang } from '../i18n/index.js';
 import { gradeQuiz, AppError } from '../lib/services.js';
+import { paymentsEnabled, hasPaid } from '../lib/payments.js';
+
+/**
+ * Whether this person must pay before the quiz. Paid courses are free while payments are off (pilot), and
+ * inside the Play Store app, where Google Play billing rules forbid selling them through another checkout.
+ */
+const mustPay = (ctx, c) => !!(c.fee && paymentsEnabled() && !ctx.inApp && ctx.user && !hasPaid(ctx.user.id, 'course', c.id));
+const lockedInApp = (ctx, c) => !!(c.fee && paymentsEnabled() && ctx.inApp && !(ctx.user && hasPaid(ctx.user.id, 'course', c.id)));
 
 export default function register(r) {
   r.get('/academy', (ctx) => {
@@ -41,12 +49,15 @@ export default function register(r) {
       <div class="page-head"><span class="tile lg accent">${c.icon}</span>
         <div class="grow"><h1>${c.title}</h1><p>${c.minutes} ${t('academy.minutes')} · ${c.fee ? naira(c.fee) : t('academy.free')} · ${c.lessons.length} ${t('academy.lessons')}</p></div></div>
       <p class="small muted">Standard: ${c.standard}</p>
-      ${c.fee ? html`<p class="flash">${t('academy.paid_note')}</p>` : ''}
+      ${c.fee && !paymentsEnabled() ? html`<p class="flash">${t('academy.paid_note')}</p>` : ''}
       ${!c.translated && ctx.lang !== 'en' ? html`<p class="flash info">${t('academy.translation_note')}</p>` : ''}
       <div lang="${c.translated ? htmlLang(ctx.lang) : 'en'}">
       ${c.lessons.map((l, i) => html`<div class="card lesson"><h3>${i + 1}. ${l.title}</h3>${l.body.map((p) => html`<p>${p}</p>`)}</div>`)}
       </div>
-      ${ctx.user ? html`<a class="btn block" href="/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`
+      ${lockedInApp(ctx, c) ? html`<p class="flash info">${t('pay.not_in_app')}</p>`
+        : mustPay(ctx, c) ? html`${form(ctx, `/pay/course/${c.id}`, html`<button class="btn block">${icon('wallet')}${t('pay.button', { amount: naira(c.fee) })}</button>`)}
+          <p class="secure-note">${icon('lock', { cls: 'i-sm' })}${t('pay.secure')}</p>`
+        : ctx.user ? html`<a class="btn block" href="/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`
         : html`<a class="btn block" href="/login?next=/academy/${c.id}/quiz">📝 ${t('academy.continue')}</a>`}`);
   });
 
@@ -55,6 +66,7 @@ export default function register(r) {
     const { t } = ctx;
     const c = localizeCourse(getCourse(ctx.params.id), ctx.lang);
     if (!c) throw new AppError('common.not_found', 404);
+    if (mustPay(ctx, c) || lockedInApp(ctx, c)) return ctx.redirect(`/academy/${c.id}`, 'pay.required', 'info');
     ctx.render(`${t('academy.quiz')} · ${c.title}`, html`
       <h1>📝 ${t('academy.quiz')}: ${c.title}</h1>
       ${form(ctx, `/academy/${c.id}/quiz`, html`
@@ -68,6 +80,7 @@ export default function register(r) {
     const { t } = ctx;
     const c = localizeCourse(getCourse(ctx.params.id), ctx.lang);
     if (!c) throw new AppError('common.not_found', 404);
+    if (mustPay(ctx, c) || lockedInApp(ctx, c)) return ctx.redirect(`/academy/${c.id}`, 'pay.required', 'info');
     const answers = c.quiz.map((_, i) => ctx.body[`a${i}`]);
     const res = gradeQuiz(ctx.user.id, c.id, answers);
     ctx.render(c.title, html`
